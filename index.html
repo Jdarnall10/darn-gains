@@ -372,7 +372,7 @@ const PLAN={
 
 let W={},H={},CH=[],MEAS=[],PROT=[],alts={},done={},coreDone={},rpeScores={},sessionNotes={};
 let selDay=todayI,equipMode='full',saveTimer=null,timerInterval=null,timerSecs=0,timerRunning=false;
-const programStartDate=new Date('2025-06-02');
+const programStartDate=new Date(localStorage.getItem('dg_start')||(()=>{const d=new Date().toISOString().split('T')[0];localStorage.setItem('dg_start',d);return d;})());
 
 async function sbFetch(method,body=null){
   const opts={method,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'}};
