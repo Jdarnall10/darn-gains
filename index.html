@@ -574,24 +574,37 @@ const programStartDate=new Date(localStorage.getItem('dg_start')||(()=>{const d=
 // SUPABASE
 async function loadData(){
   setSS('loading','connecting...');
+  // Always load from local first so app renders immediately
   try{
-    const r=await fetch(SB_URL+'/rest/v1/workout_data?id=eq.main',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    const loc=JSON.parse(localStorage.getItem('dg_backup')||'{}');
+    if(loc.W){W=loc.W||{};H=loc.H||{};CH=loc.CH||[];MEAS=loc.MEAS||[];PROT=loc.PROT||[];SLEEP=loc.SLEEP||[];WATER=loc.WATER||{};nextWeekIncrease=loc.nextWeekIncrease||{};}
+  }catch(e2){}
+  seedDefaults();
+  applyPendingIncreases();
+  renderAll();
+  setSS('ok','local');
+  checkMonthlyReport();
+  // Then try to sync from Supabase in background with a 8s timeout
+  try{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),8000);
+    const r=await fetch(SB_URL+'/rest/v1/workout_data?id=eq.main',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},
+      signal:controller.signal
+    });
+    clearTimeout(timeout);
     const rows=await r.json();
     if(rows&&rows.length&&rows[0].data){
       const d=rows[0].data;
       W=d.W||{};H=d.H||{};CH=d.CH||[];MEAS=d.MEAS||[];PROT=d.PROT||[];
       SLEEP=d.SLEEP||[];WATER=d.WATER||{};
       nextWeekIncrease=d.nextWeekIncrease||{};
+      seedDefaults();applyPendingIncreases();
+      renderAll();setSS('ok','synced');
     }
-    seedDefaults();setSS('ok','synced');
   }catch(e){
-    try{const loc=JSON.parse(localStorage.getItem('dg_backup')||'{}');W=loc.W||{};H=loc.H||{};CH=loc.CH||[];MEAS=loc.MEAS||[];PROT=loc.PROT||[];SLEEP=loc.SLEEP||[];WATER=loc.WATER||{};nextWeekIncrease=loc.nextWeekIncrease||{};}catch(e2){}
-    seedDefaults();setSS('err','offline');
+    setSS('err','offline — local data shown');
   }
-  // Apply any pending next-week increases
-  applyPendingIncreases();
-  renderAll();
-  checkMonthlyReport();
 }
 
 function seedDefaults(){
@@ -611,11 +624,21 @@ function applyPendingIncreases(){
 async function persist(){
   setSS('saving','saving...');
   const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease};
+  // Always save locally first — instant and never fails
+  try{localStorage.setItem('dg_backup',JSON.stringify(payload));}catch(e){}
+  // Then push to Supabase with timeout
   try{
-    localStorage.setItem('dg_backup',JSON.stringify(payload));
-    const r=await fetch(SB_URL+'/rest/v1/workout_data?id=eq.main',{method:'PATCH',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({data:payload})});
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),6000);
+    const r=await fetch(SB_URL+'/rest/v1/workout_data?id=eq.main',{
+      method:'PATCH',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({data:payload}),
+      signal:controller.signal
+    });
+    clearTimeout(timeout);
     r.ok?setSS('ok','synced'):setSS('err','sync error');
-  }catch(e){setSS('err','offline — saved locally');}
+  }catch(e){setSS('err','saved locally');}
 }
 function schedPersist(){clearTimeout(saveTimer);saveTimer=setTimeout(persist,1500);}
 function setSS(t,l){const d=document.getElementById('sdot'),lb=document.getElementById('slbl');if(!d||!lb)return;d.className='sdot'+(t==='saving'?' saving':t==='err'?' err':'');lb.textContent=l;}
