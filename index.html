@@ -1009,7 +1009,7 @@ function saveSession(){
   if(newPRs.length){
     showTucker('pr','NEW PERSONAL RECORD',''+newPRs.join(' & ')+' — Tucker has never been more proud. Don\'t make it weird. He\'s still a dog.','LETS GO! 🏆','gold');
   }else{
-    showTucker('proud',tuck(),'Session saved. The gains are compounding. Tucker approves of your consistency.','Keep going 💪','');
+    showTucker("proud",tuck(),"Session saved. The gains are compounding. Tucker approves of your consistency.","Keep going 💪","");
   }
   renderWorkout();renderProgress();
 }
@@ -1064,10 +1064,10 @@ function logProtein(grams){
   if(PROT.length>90)PROT=PROT.slice(-90);
   persist();renderProteinBar('tuk-protein-bar');
   const configs={
-    50:{mood:'judgy',hl:'An eyebrow has been raised.',msg:'Tucker acknowledges the 50g. He expected more. There is still time.',btn:'I'll eat more'},
-    100:{mood:'judgy',hl:'Halfway.',msg:'Tucker is watching. He can see you. Eat more protein. He will know.',btn:'On it, Tuck'},
-    150:{mood:'proud',hl:'Almost there.',msg:'150g. Tucker can smell the gains. One more meal and you earn his full respect.',btn:'Almost there!'},
-    200:{mood:'pr',hl:'200g. Tucker nods.',msg:'Full protein goal hit. Tucker nods with profound, measured respect. You may pet him tonight.',btn:'Let\'s go! 💪',cls:'gold'},
+    50:{mood:"judgy",hl:"An eyebrow has been raised.",msg:"Tucker acknowledges the 50g. He expected more. There is still time.",btn:"Eat more"},
+    100:{mood:'judgy',hl:'Halfway.',msg:'Tucker is watching. He can see you. Eat more protein. He will know.',btn:"On it, Tuck"},
+    150:{mood:'proud',hl:'Almost there.',msg:'150g. Tucker can smell the gains. One more meal and you earn his full respect.',btn:"Almost there!"},
+    200:{mood:'pr',hl:'200g. Tucker nods.',msg:'Full protein goal hit. Tucker nods with profound, measured respect. You may pet him tonight.',btn:"Let's go! 💪",cls:'gold'},
   };
   const cfg=configs[grams]||{mood:'proud',hl:'Protein logged!',msg:'Tucker is tracking this.',btn:'Got it'};
   showTucker(cfg.mood,cfg.hl,cfg.msg,cfg.btn,cfg.cls||'');
@@ -1279,8 +1279,8 @@ function skipWorkout(){
   showTucker(
     'sad',
     'Really.',
-    'Tucker waited by the door all day. He did his zoomies alone. The weights got cold. Tucker is not mad. He is just... disappointed.',
-    'I'll do better tomorrow',
+    'Tucker waited by the door all day. He did his zoomies alone. The weights got cold. Tucker is not mad. He is just disappointed.',
+    "Do better tomorrow",
     'blue'
   );
 }
