@@ -286,6 +286,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .skip-workout-btn:active{background:var(--sf2)}
 /* Skipped heatmap cell */
 .hm-cell.skipped{background:#E6F1FB}
+
+/* SUPERSETS */
+.ss-bar{display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:8px 10px;background:var(--pul);border-radius:var(--rads);border:1px solid var(--pu)}
+.ss-bar-label{font-size:11px;font-weight:600;color:var(--pu);flex:1}
+.ss-connector{width:2px;height:24px;background:var(--pu);border-radius:1px;margin:0 auto}
+.ss-badge{font-size:10px;padding:2px 8px;border-radius:var(--pill);background:var(--pu);color:white;font-weight:600;white-space:nowrap}
+.ss-suggest-strip{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:var(--pul);border-radius:var(--rads);align-items:center}
+.ss-suggest-label{font-size:10px;color:var(--pu);font-weight:600;margin-right:4px}
+.ss-suggest-btn{font-size:10px;padding:3px 9px;border-radius:var(--pill);border:1px solid var(--pu);background:transparent;cursor:pointer;color:var(--pu);font-family:"DM Sans",sans-serif;-webkit-tap-highlight-color:transparent}
+.ss-suggest-btn:active{background:var(--pul)}
+.ss-remove-btn{font-size:10px;padding:3px 9px;border-radius:var(--pill);border:1px solid var(--bd2);background:transparent;cursor:pointer;color:var(--tx3);font-family:"DM Sans",sans-serif;margin-left:auto}
+.phase-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--pill);font-size:11px;font-weight:600;margin-bottom:10px}
+
 </style>
 </head>
 <body>
@@ -375,6 +388,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
   <button class="export-btn" onclick="exportCSV()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export all data as CSV</button>
   <div class="slabel" style="margin-top:14px">Lift tracker</div>
   <table class="ptable" style="margin-bottom:14px"><thead><tr><th style="width:36%">Exercise</th><th style="width:16%">Now</th><th style="width:16%">Peak</th><th style="width:10%"></th><th style="width:22%">History</th></tr></thead><tbody id="prog-body"></tbody></table>
+  <div class="slabel">Personal records</div>
+  <div id="pr-history" style="margin-bottom:14px"></div>
   <div class="slabel">Cardio log</div>
   <table class="ptable"><thead><tr><th style="width:26%">Date</th><th style="width:18%">Type</th><th style="width:13%">Mi</th><th style="width:11%">Min</th><th style="width:32%">Notes</th></tr></thead><tbody id="cardio-body"></tbody></table>
 </div>
@@ -428,6 +443,55 @@ const PU=[
   {wk:'Weeks 5–6',p:'4×5–6 reps, no band. Slow 5s negatives on last set.'},
   {wk:'Weeks 7–8',p:'4×6–8 reps. Target 10+ by end of week 8.'},
 ];
+
+// ─── PROGRAM PHASES ────────────────────────────────────────────────────────
+const PHASES=[
+  {num:1,name:"Foundation",weeks:"1-4",desc:"Build the habit, establish baseline weights.",repMod:0,weightMod:1.0,color:"var(--bl)",tuckerMsg:"Tucker approves of your foundation. The gains are being planted.",swaps:{}},
+  {num:2,name:"Progression",weeks:"5-8",desc:"Heavier compounds, visible strength gains.",repMod:-2,weightMod:1.05,color:"var(--am)",tuckerMsg:"Phase 2. Tucker expects more weight on the bar. Do not disappoint.",swaps:{}},
+  {num:3,name:"Peak",weeks:"9-12",desc:"Maximum intensity. Heavy lifts, high volume accessories.",repMod:-4,weightMod:1.10,color:"var(--or)",tuckerMsg:"Phase 3. Peak week. Tucker is watching every rep.",swaps:{}},
+];
+
+function getCurrentPhase(){
+  const weekNum=Math.max(1,Math.floor((new Date()-programStartDate)/(7*24*60*60*1000))+1);
+  const cycleWeek=((weekNum-1)%12)+1;
+  const cycleNum=Math.floor((weekNum-1)/12)+1;
+  const phaseIdx=cycleWeek<=4?0:cycleWeek<=8?1:2;
+  return{...PHASES[phaseIdx],weekNum,cycleNum,cycleWeek};
+}
+
+function getPhaseReps(baseReps,phase){
+  if(phase.num===1||phase.repMod===0)return baseReps;
+  const match=String(baseReps).match(/(\d+)[\u2013-](\d+)/);
+  if(!match)return baseReps;
+  const lo=Math.max(3,parseInt(match[1])+phase.repMod);
+  const hi=Math.max(5,parseInt(match[2])+phase.repMod);
+  return lo+"-"+hi;
+}
+
+function getPhaseWeight(baseWeight,phase){
+  if(phase.num===1||!baseWeight)return baseWeight;
+  return Math.round((baseWeight*phase.weightMod)/2.5)*2.5;
+}
+
+function checkPhaseTransition(){
+  const phase=getCurrentPhase();
+  const lastPhase=parseInt(localStorage.getItem("dg_last_phase")||"0");
+  if(phase.num!==lastPhase&&lastPhase>0){
+    localStorage.setItem("dg_last_phase",phase.num);
+    setTimeout(()=>{
+      showTucker(
+        phase.num===3?"pr":"proud",
+        "Phase "+phase.num+": "+phase.name,
+        phase.desc+" "+phase.tuckerMsg,
+        "Lets go!",phase.num===3?"gold":"","",null
+      );
+    },1500);
+  }else if(!lastPhase){
+    localStorage.setItem("dg_last_phase",phase.num);
+  }
+  return phase;
+}
+
 
 // WARMUPS tailored per day type
 const WARMUPS={
@@ -705,8 +769,11 @@ function renderAll(){
 }
 
 function updateWeekLabel(){
-  const week=Math.max(1,Math.min(12,Math.floor((new Date()-programStartDate)/(7*24*60*60*1000))+1));
-  const el=document.getElementById('week-label');if(el)el.textContent='WEEK '+week+' OF 12 · RECOMPOSITION';
+  const week=Math.max(1,Math.floor((new Date()-programStartDate)/(7*24*60*60*1000))+1);
+  const ph=getCurrentPhase();
+  const cycleStr=ph.cycleNum>1?" · CYCLE "+ph.cycleNum:"";
+  const el=document.getElementById("week-label");
+  if(el)el.textContent="WEEK "+ph.cycleWeek+" · "+ph.name.toUpperCase()+cycleStr+(isDeload()?" · DELOAD":"");
 }
 
 function renderDeloadBanner(){
@@ -1439,6 +1506,85 @@ function logWater(glasses){
   if(lbl)lbl.textContent=(glasses*10)+"/100oz"+(glasses>=10?" -- Tucker approves":glasses>=5?" -- halfway there":"-- stay hydrated!");
   if(glasses>=10){showTucker("proud","100oz. Tucker is hydrated by association.","You hit your water goal. Tucker has reviewed your hydration. It is acceptable. Well done.","Tucker approves","","",null);}
   else if(glasses===5){showTucker("judgy","Halfway on water.","Tucker notes you are 50oz in. He expects the rest. Do not disappoint him.","Keep going","","",null);}
+}
+
+
+// ─── SUPERSETS ────────────────────────────────────────────────────────────────
+// Pre-suggested smart pairings per workout type
+const SUPERSET_SUGGESTIONS = {
+  pushA: [['bbp','incbar'],['dbohp','latr'],['tricpd','ohtri']],
+  pushB: [['dbflt','incdb'],['arnld','uprow'],['skllc','dips']],
+  pullA: [['dl','pup'],['bbrow','cabrow'],['bbcurl','hamcrl']],
+  pullB: [['tbar','lapd'],['dbrow','facep'],['conccl','pcurl']],
+  legsA: [['bsq','rdl'],['lgpr','legcr'],['lunge','calf']],
+  legsB: [['bsqb','bss'],['hipthr','legcr'],['calfb','lunge']],
+};
+
+// Active supersets: {exId: partnerExId}
+let activeSupersets = {};
+
+function getSuggestedSupersets(workoutKey) {
+  return SUPERSET_SUGGESTIONS[workoutKey] || [];
+}
+
+function toggleSuperset(exId, partnerId) {
+  if (activeSupersets[exId]) {
+    // Remove superset
+    const partner = activeSupersets[exId];
+    delete activeSupersets[exId];
+    delete activeSupersets[partner];
+  } else {
+    // Add superset
+    activeSupersets[exId]    = partnerId;
+    activeSupersets[partnerId] = exId;
+  }
+  renderWorkout();
+}
+
+function getSupersetLabel(exId) {
+  const partner = activeSupersets[exId];
+  if (!partner) return null;
+  // Find partner exercise name
+  const allEx = getAllExercises(selQIdx);
+  const partnerEx = allEx.find(e => e.id === partner);
+  return partnerEx ? partnerEx.name : null;
+}
+
+function isFirstInSuperset(exId, allExercises) {
+  const partner = activeSupersets[exId];
+  if (!partner) return false;
+  const myIdx      = allExercises.findIndex(e => e.id === exId);
+  const partnerIdx = allExercises.findIndex(e => e.id === partner);
+  return myIdx < partnerIdx;
+}
+
+
+function renderPRHistory(){
+  const el=document.getElementById("pr-history");if(!el)return;
+  const allEx=[];WORKOUT_TYPES.forEach(d=>d.exercises&&d.exercises.forEach(e=>{if(!e.bwOnly)allEx.push(e);}));
+  const prs=[];
+  allEx.forEach(ex=>{
+    const h=H[ex.id]||[];if(h.length<2)return;
+    const best=Math.max(...h.map(s=>s.weight));
+    const bestEntry=h.find(s=>s.weight===best);
+    const current=h[h.length-1].weight;
+    const start=h[0].weight;
+    const gained=best-start;
+    if(gained>0)prs.push({name:ex.name,best,bestDate:bestEntry?.date||"",current,start,gained});
+  });
+  prs.sort((a,b)=>b.gained-a.gained);
+  if(!prs.length){el.innerHTML="<div style=\"font-size:12px;color:var(--tx3);padding:8px 0\">Log sessions to see your PRs here</div>";return;}
+  el.innerHTML=prs.slice(0,8).map(p=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</div>
+        <div style="font-size:10px;color:var(--tx3);margin-top:1px">Started ${p.start} lbs · Best on ${p.bestDate}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:14px;font-weight:600;color:var(--tx);font-family:'DM Mono',monospace">${p.best} lbs</div>
+        <div style="font-size:10px;color:var(--gr);font-weight:600">+${p.gained} lbs</div>
+      </div>
+    </div>`).join("");
 }
 
 function sw(name){
