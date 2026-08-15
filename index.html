@@ -886,6 +886,23 @@ function renderWorkout(){
   const pct=Math.round((dc/totalSets)*100);
   html+=`<div class="dprog"><div class="dprog-row"><span class="dprog-title">${day.name}</span><span class="dprog-pct">${dc}/${totalSets} · ${pct}%</span></div><div class="pbar"><div class="pfill" id="pfill" style="width:${pct}%"></div></div><div class="dtag">${day.tag}</div></div>`;
 
+  // SUPERSET SUGGESTIONS
+  const workoutKey=workoutKeyForDay(selDay);
+  const ssSuggestions=getSuggestedSupersets(workoutKey).filter(([a,b])=>day.exercises.some(e=>e.id===a)&&day.exercises.some(e=>e.id===b));
+  if(ssSuggestions.length){
+    html+=`<div class="ss-suggest-strip"><span class="ss-suggest-label">🔗 Suggested supersets:</span>`;
+    ssSuggestions.forEach(([a,b])=>{
+      const exA=day.exercises.find(e=>e.id===a),exB=day.exercises.find(e=>e.id===b);
+      const nameA=getExEquip(exA).name,nameB=getExEquip(exB).name;
+      if(activeSupersets[a]===b){
+        html+=`<span class="ss-badge">🔗 ${nameA} + ${nameB}<span onclick="toggleSuperset('${a}','${b}')" style="cursor:pointer;margin-left:6px">✕</span></span>`;
+      }else{
+        html+=`<button class="ss-suggest-btn" onclick="toggleSuperset('${a}','${b}')">${nameA} + ${nameB}</button>`;
+      }
+    });
+    html+=`</div>`;
+  }
+
   // EXERCISES
   const icons={up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>',hold:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><path d="M5 12h14"/></svg>',new:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>',pr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'};
 
@@ -910,8 +927,17 @@ function renderWorkout(){
           <div class="ex-meta">${sets}×${ex.reps}${dispW?' · '+dispW+' lbs'+dbNote:''}${eqEx.note?' · <em style="font-size:10px;color:var(--tx3)">'+eqEx.note+'</em>':''}</div>
         </div>
         <span class="mtag">${ex.muscle}</span>
-      </div>
-      <div class="sh"><div></div><div>Target reps</div><div>Low / Hit / High</div><div>Done</div></div>`;
+      </div>`;
+
+    if(activeSupersets[ex.id]){
+      const partnerId=activeSupersets[ex.id];
+      const partnerEx=day.exercises.find(e=>e.id===partnerId);
+      const partnerName=partnerEx?getExEquip(partnerEx).name:'partner exercise';
+      const firstNote=isFirstInSuperset(ex.id,day.exercises)?' · no rest, straight into next':' · rest after this, then repeat';
+      html+=`<div class="ss-bar"><span class="ss-connector"></span><span class="ss-bar-label">🔗 Superset with ${partnerName}${firstNote}</span><button class="ss-remove-btn" onclick="toggleSuperset('${ex.id}','${partnerId}')">Remove</button></div>`;
+    }
+
+    html+=`<div class="sh"><div></div><div>Target reps</div><div>Low / Hit / High</div><div>Done</div></div>`;
 
     for(let s=1;s<=sets;s++){
       const k=''+ex.id+'_'+selDay+'_'+s;
@@ -1541,13 +1567,15 @@ function toggleSuperset(exId, partnerId) {
   renderWorkout();
 }
 
-function getSupersetLabel(exId) {
+function getSupersetLabel(exId, allExercises) {
   const partner = activeSupersets[exId];
   if (!partner) return null;
-  // Find partner exercise name
-  const allEx = getAllExercises(selQIdx);
-  const partnerEx = allEx.find(e => e.id === partner);
+  const partnerEx = (allExercises||[]).find(e => e.id === partner);
   return partnerEx ? partnerEx.name : null;
+}
+
+function workoutKeyForDay(idx){
+  return {0:'pushA',1:'pullA',2:'legsA',3:'pushB',4:'pullB',5:'legsB'}[idx]||null;
 }
 
 function isFirstInSuperset(exId, allExercises) {
@@ -1561,7 +1589,7 @@ function isFirstInSuperset(exId, allExercises) {
 
 function renderPRHistory(){
   const el=document.getElementById("pr-history");if(!el)return;
-  const allEx=[];WORKOUT_TYPES.forEach(d=>d.exercises&&d.exercises.forEach(e=>{if(!e.bwOnly)allEx.push(e);}));
+  const allEx=[];Object.values(PLAN).forEach(d=>d.exercises&&d.exercises.forEach(e=>{if(!e.bwOnly)allEx.push(e);}));
   const prs=[];
   allEx.forEach(ex=>{
     const h=H[ex.id]||[];if(h.length<2)return;
