@@ -151,6 +151,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .rest-icon{font-size:30px;margin-bottom:8px}
 .rest-title{font-size:16px;font-weight:600;color:var(--tx);margin-bottom:4px}
 .rest-sub{font-size:12px;color:var(--tx2);line-height:1.6}
+.rest-train-btn{margin-top:16px;width:100%;padding:11px;border-radius:var(--rads);border:1px solid var(--or);background:transparent;color:var(--or);font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .15s}
+.rest-train-btn:active{background:var(--orl)}
 /* SLEEP/WATER CARD */
 .daily-check-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rad);padding:13px;margin-bottom:10px}
 .dc-title{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:10px}
@@ -657,6 +659,13 @@ const CORE_ROTATIONS={
 let W={},H={},CH=[],MEAS=[],PROT=[],SLEEP=[],WATER={};
 let done={},coreDone={},warmupDone={},exEffort={},setResults={},nextWeekIncrease={};
 let selDay=todayI,equipMode='full',perExEquip={},saveTimer=null;
+// dayMap[calIdx] = which PLAN slot (0-6) is assigned to that calendar weekday (0=Mon..6=Sun).
+// Default is identity (calendar day N shows PLAN[N]). Swapping two entries lets a rest day
+// and a workout day trade places (e.g. train on Sunday, rest moves to Monday) without
+// disturbing the rest of the week.
+let dayMap=[0,1,2,3,4,5,6];
+function planSlotForCalDay(calIdx){const i=((calIdx%7)+7)%7;return dayMap[i]!==undefined?dayMap[i]:i;}
+function effectiveTodaySlot(){return planSlotForCalDay(todayI);}
 const programStartDate=new Date(localStorage.getItem('dg_start')||(()=>{const d=new Date().toISOString().split('T')[0];localStorage.setItem('dg_start',d);return d;})());
 
 // SUPABASE
@@ -666,7 +675,9 @@ async function loadData(){
   try{
     const loc=JSON.parse(localStorage.getItem('dg_backup')||'{}');
     if(loc.W){W=loc.W||{};H=loc.H||{};CH=loc.CH||[];MEAS=loc.MEAS||[];PROT=loc.PROT||[];SLEEP=loc.SLEEP||[];WATER=loc.WATER||{};nextWeekIncrease=loc.nextWeekIncrease||{};}
+    if(Array.isArray(loc.dayMap)&&loc.dayMap.length===7)dayMap=loc.dayMap;
   }catch(e2){}
+  selDay=effectiveTodaySlot();
   seedDefaults();
   applyPendingIncreases();
   renderAll();
@@ -687,6 +698,8 @@ async function loadData(){
       W=d.W||{};H=d.H||{};CH=d.CH||[];MEAS=d.MEAS||[];PROT=d.PROT||[];
       SLEEP=d.SLEEP||[];WATER=d.WATER||{};
       nextWeekIncrease=d.nextWeekIncrease||{};
+      if(Array.isArray(d.dayMap)&&d.dayMap.length===7)dayMap=d.dayMap;
+      selDay=effectiveTodaySlot();
       seedDefaults();applyPendingIncreases();
       renderAll();setSS('ok','synced');
     }
@@ -715,7 +728,7 @@ function applyPendingIncreases(){
 
 async function persist(){
   setSS('saving','saving...');
-  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease};
+  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease,dayMap};
   // Always save locally first — instant and never fails
   try{localStorage.setItem('dg_backup',JSON.stringify(payload));}catch(e){}
   // Then push to Supabase with timeout
@@ -821,13 +834,14 @@ function logSleep(val){
 
 function renderDays(){
   const g=document.getElementById('day-row');g.innerHTML='';
-  Object.entries(PLAN).forEach(([i,d])=>{
-    const idx=parseInt(i);const b=document.createElement('div');
-    b.className='day-btn'+(idx===selDay?' active':'')+(d.exercises.length===0?' rest':'')+(idx===todayI?' today':'');
-    b.innerHTML='<span class="dl">'+DAYS[idx]+'</span><span class="dn">'+d.name+'</span>';
-    if(d.exercises.length)b.onclick=()=>{selDay=idx;renderDays();renderWorkout();};
+  for(let calIdx=0;calIdx<7;calIdx++){
+    const planIdx=planSlotForCalDay(calIdx);
+    const d=PLAN[planIdx];const b=document.createElement('div');
+    b.className='day-btn'+(planIdx===selDay?' active':'')+(d.exercises.length===0?' rest':'')+(calIdx===todayI?' today':'');
+    b.innerHTML='<span class="dl">'+DAYS[calIdx]+'</span><span class="dn">'+d.name+'</span>';
+    if(d.exercises.length)b.onclick=()=>{selDay=planIdx;renderDays();renderWorkout();};
     g.appendChild(b);
-  });
+  }
 }
 
 function getCoreExs(day){
@@ -839,7 +853,10 @@ function renderWorkout(){
   const area=document.getElementById('workout-area');
   const day=PLAN[selDay];
   if(!day||!day.exercises.length){
-    area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div></div>';
+    const isActualToday=(selDay===effectiveTodaySlot());
+    const nextSlot=PLAN[planSlotForCalDay((todayI+1)%7)];
+    const trainBtn=isActualToday?'<button class="rest-train-btn" onclick="trainTodayInstead()">Train today instead — do '+nextSlot.name+', push rest to tomorrow</button>':'';
+    area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div>'+trainBtn+'</div>';
     return;
   }
 
@@ -1013,7 +1030,7 @@ function renderWorkout(){
   // SESSION NOTES
   html+=`<div class="ex-card"><div class="ex-name" style="margin-bottom:8px">Session notes</div><div class="notes-row"><textarea id="sess-notes" placeholder="Tight shoulder, felt strong, lower back ok today...">${window._sessNotes&&window._sessNotes[selDay]||''}</textarea></div></div>`;
   html+=`<div class="save-row"><button class="save-btn" onclick="saveSession()">Save session</button></div>`;
-  html+=`<button class="skip-workout-btn" onclick="promptSkip()">😔 I didn't train today — push to tomorrow</button>`;
+  html+=(selDay===effectiveTodaySlot())?`<button class="skip-workout-btn" onclick="didntTrainToday()">😔 I didn't train today — push to tomorrow</button>`:'';
   area.innerHTML=html;
 }
 
@@ -1419,6 +1436,43 @@ function promptSkip(){
     const btn=document.querySelector(".tdismiss.blue");
     if(btn)btn.onclick=()=>{pushToTomorrow();hideTucker();};
   },100);
+}
+
+function swapTodayTomorrow(){
+  const tomorrowCal=(todayI+1)%7;
+  const tmp=dayMap[todayI];
+  dayMap[todayI]=dayMap[tomorrowCal];
+  dayMap[tomorrowCal]=tmp;
+  selDay=effectiveTodaySlot();
+  renderDays();renderWorkout();
+  schedPersist();
+}
+
+function trainTodayInstead(){
+  // Only valid when today's effective slot is actually Rest
+  if(PLAN[effectiveTodaySlot()].exercises.length)return;
+  swapTodayTomorrow();
+  const day=PLAN[selDay];
+  showTucker(
+    'judgy',
+    'Training on rest day?',
+    'Tucker did not see this coming. Fine — today is now '+day.name+'. Rest has been pushed to tomorrow. He is watching.',
+    "Let's go"
+  );
+}
+
+function didntTrainToday(){
+  // Only meaningful when actually viewing today's real workout slot
+  if(selDay!==effectiveTodaySlot())return;
+  const skippedName=PLAN[selDay].name;
+  swapTodayTomorrow();
+  showTucker(
+    'sad',
+    'Really.',
+    'Tucker waited by the door all day. He did his zoomies alone. The weights got cold. '+skippedName+' has been pushed to tomorrow.',
+    "Do better tomorrow",
+    'blue'
+  );
 }
 
 function pushToTomorrow(){
