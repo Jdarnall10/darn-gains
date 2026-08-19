@@ -151,8 +151,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .rest-icon{font-size:30px;margin-bottom:8px}
 .rest-title{font-size:16px;font-weight:600;color:var(--tx);margin-bottom:4px}
 .rest-sub{font-size:12px;color:var(--tx2);line-height:1.6}
-.rest-train-btn{margin-top:16px;width:100%;padding:11px;border-radius:var(--rads);border:1px solid var(--or);background:transparent;color:var(--or);font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .15s}
-.rest-train-btn:active{background:var(--orl)}
 /* SLEEP/WATER CARD */
 .daily-check-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rad);padding:13px;margin-bottom:10px}
 .dc-title{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:10px}
@@ -300,6 +298,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 .ss-suggest-btn:active{background:var(--pul)}
 .ss-remove-btn{font-size:10px;padding:3px 9px;border-radius:var(--pill);border:1px solid var(--bd2);background:transparent;cursor:pointer;color:var(--tx3);font-family:"DM Sans",sans-serif;margin-left:auto}
 .phase-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--pill);font-size:11px;font-weight:600;margin-bottom:10px}
+
+
+/* RESCHEDULE */
+.reschedule-card{background:var(--bll);border:1px solid var(--bl);border-radius:var(--rad);padding:16px;text-align:center;margin-bottom:12px}
+.reschedule-title{font-size:14px;font-weight:600;color:var(--bld);margin-bottom:4px}
+.reschedule-sub{font-size:12px;color:var(--tx2);margin-bottom:12px;line-height:1.5}
+.reschedule-btns{display:flex;gap:8px}
+.reschedule-btn{flex:1;padding:10px;border-radius:var(--rads);border:none;background:var(--bl);color:white;font-size:13px;font-weight:600;font-family:"DM Sans",sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.reschedule-btn.secondary{background:transparent;border:1px solid var(--bd2);color:var(--tx2)}
+.missed-dot::after{content:"";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--bl)}
 
 </style>
 </head>
@@ -659,13 +667,6 @@ const CORE_ROTATIONS={
 let W={},H={},CH=[],MEAS=[],PROT=[],SLEEP=[],WATER={};
 let done={},coreDone={},warmupDone={},exEffort={},setResults={},nextWeekIncrease={};
 let selDay=todayI,equipMode='full',perExEquip={},saveTimer=null;
-// dayMap[calIdx] = which PLAN slot (0-6) is assigned to that calendar weekday (0=Mon..6=Sun).
-// Default is identity (calendar day N shows PLAN[N]). Swapping two entries lets a rest day
-// and a workout day trade places (e.g. train on Sunday, rest moves to Monday) without
-// disturbing the rest of the week.
-let dayMap=[0,1,2,3,4,5,6];
-function planSlotForCalDay(calIdx){const i=((calIdx%7)+7)%7;return dayMap[i]!==undefined?dayMap[i]:i;}
-function effectiveTodaySlot(){return planSlotForCalDay(todayI);}
 const programStartDate=new Date(localStorage.getItem('dg_start')||(()=>{const d=new Date().toISOString().split('T')[0];localStorage.setItem('dg_start',d);return d;})());
 
 // SUPABASE
@@ -675,9 +676,7 @@ async function loadData(){
   try{
     const loc=JSON.parse(localStorage.getItem('dg_backup')||'{}');
     if(loc.W){W=loc.W||{};H=loc.H||{};CH=loc.CH||[];MEAS=loc.MEAS||[];PROT=loc.PROT||[];SLEEP=loc.SLEEP||[];WATER=loc.WATER||{};nextWeekIncrease=loc.nextWeekIncrease||{};}
-    if(Array.isArray(loc.dayMap)&&loc.dayMap.length===7)dayMap=loc.dayMap;
   }catch(e2){}
-  selDay=effectiveTodaySlot();
   seedDefaults();
   applyPendingIncreases();
   renderAll();
@@ -698,8 +697,6 @@ async function loadData(){
       W=d.W||{};H=d.H||{};CH=d.CH||[];MEAS=d.MEAS||[];PROT=d.PROT||[];
       SLEEP=d.SLEEP||[];WATER=d.WATER||{};
       nextWeekIncrease=d.nextWeekIncrease||{};
-      if(Array.isArray(d.dayMap)&&d.dayMap.length===7)dayMap=d.dayMap;
-      selDay=effectiveTodaySlot();
       seedDefaults();applyPendingIncreases();
       renderAll();setSS('ok','synced');
     }
@@ -728,7 +725,7 @@ function applyPendingIncreases(){
 
 async function persist(){
   setSS('saving','saving...');
-  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease,dayMap};
+  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease};
   // Always save locally first — instant and never fails
   try{localStorage.setItem('dg_backup',JSON.stringify(payload));}catch(e){}
   // Then push to Supabase with timeout
@@ -834,14 +831,37 @@ function logSleep(val){
 
 function renderDays(){
   const g=document.getElementById('day-row');g.innerHTML='';
-  for(let calIdx=0;calIdx<7;calIdx++){
-    const planIdx=planSlotForCalDay(calIdx);
-    const d=PLAN[planIdx];const b=document.createElement('div');
-    b.className='day-btn'+(planIdx===selDay?' active':'')+(d.exercises.length===0?' rest':'')+(calIdx===todayI?' today':'');
-    b.innerHTML='<span class="dl">'+DAYS[calIdx]+'</span><span class="dn">'+d.name+'</span>';
-    if(d.exercises.length)b.onclick=()=>{selDay=planIdx;renderDays();renderWorkout();};
+  Object.entries(PLAN).forEach(([i,d])=>{
+    const idx=parseInt(i);const b=document.createElement('div');
+    const missed=isDayMissed(idx);
+    const dateKey=getDayDate(idx)+'_'+idx;
+    const completed=window._dayStatus[dateKey]==='completed';
+    let cls='day-btn';
+    if(idx===selDay)cls+=' active';
+    if(!d.exercises.length)cls+=' rest';
+    if(idx===todayI)cls+=' today';
+    if(missed)cls+=' missed-dot';
+    b.className=cls;
+    const statusDot=missed?'<span style="display:block;font-size:8px;color:var(--bl);margin-top:1px">missed</span>':
+                    completed?'<span style="display:block;font-size:8px;color:var(--gr);margin-top:1px">done</span>':'';
+    // Show cascade shift indicator
+    let shiftNote = '';
+    if(window._cascadeShift && window._cascadeShift.active && idx >= window._cascadeShift.from) {
+      const shiftedIdx = (idx + 1) % 7;
+      shiftNote = '<span style="display:block;font-size:8px;color:var(--am);margin-top:1px">→ '+DAYS[shiftedIdx]+'</span>';
+    }
+    b.innerHTML='<span class="dl">'+DAYS[idx]+'</span><span class="dn">'+d.name+'</span>'+statusDot+shiftNote;
+    if(d.exercises.length){
+      b.onclick=()=>{
+        if(missed){
+          promptReschedule(idx);
+        } else {
+          selDay=idx;renderDays();renderWorkout();
+        }
+      };
+    }
     g.appendChild(b);
-  }
+  });
 }
 
 function getCoreExs(day){
@@ -851,12 +871,11 @@ function getCoreExs(day){
 
 function renderWorkout(){
   const area=document.getElementById('workout-area');
-  const day=PLAN[selDay];
+  // If workout was rescheduled from another day, show that plan
+  const effectiveDayIdx = window._rescheduledWorkout !== undefined ? window._rescheduledWorkout : selDay;
+  const day = PLAN[effectiveDayIdx] || PLAN[selDay];
   if(!day||!day.exercises.length){
-    const isActualToday=(selDay===effectiveTodaySlot());
-    const nextSlot=PLAN[planSlotForCalDay((todayI+1)%7)];
-    const trainBtn=isActualToday?'<button class="rest-train-btn" onclick="trainTodayInstead()">Train today instead — do '+nextSlot.name+', push rest to tomorrow</button>':'';
-    area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div>'+trainBtn+'</div>';
+    area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div></div>';
     return;
   }
 
@@ -866,7 +885,19 @@ function renderWorkout(){
   const cardioLogged=todayCardio.length>0;
   const selCardioType=window._cardioType||'Run outside';
   const ctBtns=['Run outside','Treadmill','Bike'].map(t=>`<button class="ct-btn${selCardioType===t?' active':''}" onclick="window._cardioType='${t}';renderWorkout()">${t}</button>`).join('');
-  let html=`<div class="cardio-top-card">
+  // Missed day banner — show if viewing a past workout that wasn't logged
+  let html='';
+  if(isDayMissed(selDay)){
+    html+=`<div class="reschedule-card">
+      <div class="reschedule-title">😬 You missed ${DAYS[selDay]}</div>
+      <div class="reschedule-sub">${day.name} was never logged. Tucker noticed.<br>Move it to today, push to tomorrow, or scroll down to log it now.</div>
+      <div class="reschedule-btns">
+        <button class="reschedule-btn" onclick="rescheduleToToday(${selDay})">Do it today</button>
+        <button class="reschedule-btn secondary" onclick="rescheduleToTomorrow(${selDay})">Push to tomorrow</button>
+      </div>
+    </div>`;
+  }
+  html+=`<div class="cardio-top-card">
     <div class="cardio-top-title">🏃 Today's cardio${cardioLogged?' <span style="color:var(--gr);font-size:11px">✓ logged</span>':''}</div>
     <div class="cardio-toggle">${ctBtns}</div>
     <div class="cardio-row-inputs">
@@ -903,23 +934,6 @@ function renderWorkout(){
   const pct=Math.round((dc/totalSets)*100);
   html+=`<div class="dprog"><div class="dprog-row"><span class="dprog-title">${day.name}</span><span class="dprog-pct">${dc}/${totalSets} · ${pct}%</span></div><div class="pbar"><div class="pfill" id="pfill" style="width:${pct}%"></div></div><div class="dtag">${day.tag}</div></div>`;
 
-  // SUPERSET SUGGESTIONS
-  const workoutKey=workoutKeyForDay(selDay);
-  const ssSuggestions=getSuggestedSupersets(workoutKey).filter(([a,b])=>day.exercises.some(e=>e.id===a)&&day.exercises.some(e=>e.id===b));
-  if(ssSuggestions.length){
-    html+=`<div class="ss-suggest-strip"><span class="ss-suggest-label">🔗 Suggested supersets:</span>`;
-    ssSuggestions.forEach(([a,b])=>{
-      const exA=day.exercises.find(e=>e.id===a),exB=day.exercises.find(e=>e.id===b);
-      const nameA=getExEquip(exA).name,nameB=getExEquip(exB).name;
-      if(activeSupersets[a]===b){
-        html+=`<span class="ss-badge">🔗 ${nameA} + ${nameB}<span onclick="toggleSuperset('${a}','${b}')" style="cursor:pointer;margin-left:6px">✕</span></span>`;
-      }else{
-        html+=`<button class="ss-suggest-btn" onclick="toggleSuperset('${a}','${b}')">${nameA} + ${nameB}</button>`;
-      }
-    });
-    html+=`</div>`;
-  }
-
   // EXERCISES
   const icons={up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>',hold:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><path d="M5 12h14"/></svg>',new:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>',pr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'};
 
@@ -944,17 +958,8 @@ function renderWorkout(){
           <div class="ex-meta">${sets}×${ex.reps}${dispW?' · '+dispW+' lbs'+dbNote:''}${eqEx.note?' · <em style="font-size:10px;color:var(--tx3)">'+eqEx.note+'</em>':''}</div>
         </div>
         <span class="mtag">${ex.muscle}</span>
-      </div>`;
-
-    if(activeSupersets[ex.id]){
-      const partnerId=activeSupersets[ex.id];
-      const partnerEx=day.exercises.find(e=>e.id===partnerId);
-      const partnerName=partnerEx?getExEquip(partnerEx).name:'partner exercise';
-      const firstNote=isFirstInSuperset(ex.id,day.exercises)?' · no rest, straight into next':' · rest after this, then repeat';
-      html+=`<div class="ss-bar"><span class="ss-connector"></span><span class="ss-bar-label">🔗 Superset with ${partnerName}${firstNote}</span><button class="ss-remove-btn" onclick="toggleSuperset('${ex.id}','${partnerId}')">Remove</button></div>`;
-    }
-
-    html+=`<div class="sh"><div></div><div>Target reps</div><div>Low / Hit / High</div><div>Done</div></div>`;
+      </div>
+      <div class="sh"><div></div><div>Target reps</div><div>Low / Hit / High</div><div>Done</div></div>`;
 
     for(let s=1;s<=sets;s++){
       const k=''+ex.id+'_'+selDay+'_'+s;
@@ -1030,7 +1035,7 @@ function renderWorkout(){
   // SESSION NOTES
   html+=`<div class="ex-card"><div class="ex-name" style="margin-bottom:8px">Session notes</div><div class="notes-row"><textarea id="sess-notes" placeholder="Tight shoulder, felt strong, lower back ok today...">${window._sessNotes&&window._sessNotes[selDay]||''}</textarea></div></div>`;
   html+=`<div class="save-row"><button class="save-btn" onclick="saveSession()">Save session</button></div>`;
-  html+=(selDay===effectiveTodaySlot())?`<button class="skip-workout-btn" onclick="didntTrainToday()">😔 I didn't train today — push to tomorrow</button>`:'';
+  html+=`<button class="skip-workout-btn" onclick="promptSkip()">😔 I didn't train today — push to tomorrow</button>`;
   area.innerHTML=html;
 }
 
@@ -1140,6 +1145,7 @@ function saveSession(){
   const notes=document.getElementById('sess-notes')?.value||'';
   if(!window._sessNotes)window._sessNotes={};window._sessNotes[selDay]=notes;
   persist();
+  markDayCompleted(selDay);
   if(newPRs.length){
     showTucker('pr','NEW PERSONAL RECORD',''+newPRs.join(' & ')+' — Tucker has never been more proud. Don\'t make it weird. He\'s still a dog.','LETS GO! 🏆','gold');
   }else{
@@ -1438,43 +1444,6 @@ function promptSkip(){
   },100);
 }
 
-function swapTodayTomorrow(){
-  const tomorrowCal=(todayI+1)%7;
-  const tmp=dayMap[todayI];
-  dayMap[todayI]=dayMap[tomorrowCal];
-  dayMap[tomorrowCal]=tmp;
-  selDay=effectiveTodaySlot();
-  renderDays();renderWorkout();
-  schedPersist();
-}
-
-function trainTodayInstead(){
-  // Only valid when today's effective slot is actually Rest
-  if(PLAN[effectiveTodaySlot()].exercises.length)return;
-  swapTodayTomorrow();
-  const day=PLAN[selDay];
-  showTucker(
-    'judgy',
-    'Training on rest day?',
-    'Tucker did not see this coming. Fine — today is now '+day.name+'. Rest has been pushed to tomorrow. He is watching.',
-    "Let's go"
-  );
-}
-
-function didntTrainToday(){
-  // Only meaningful when actually viewing today's real workout slot
-  if(selDay!==effectiveTodaySlot())return;
-  const skippedName=PLAN[selDay].name;
-  swapTodayTomorrow();
-  showTucker(
-    'sad',
-    'Really.',
-    'Tucker waited by the door all day. He did his zoomies alone. The weights got cold. '+skippedName+' has been pushed to tomorrow.',
-    "Do better tomorrow",
-    'blue'
-  );
-}
-
 function pushToTomorrow(){
   // Shift today's workout to tomorrow by adjusting the program start date
   if(!window._pushedDays)window._pushedDays={};
@@ -1621,15 +1590,13 @@ function toggleSuperset(exId, partnerId) {
   renderWorkout();
 }
 
-function getSupersetLabel(exId, allExercises) {
+function getSupersetLabel(exId) {
   const partner = activeSupersets[exId];
   if (!partner) return null;
-  const partnerEx = (allExercises||[]).find(e => e.id === partner);
+  // Find partner exercise name
+  const allEx = getAllExercises(selQIdx);
+  const partnerEx = allEx.find(e => e.id === partner);
   return partnerEx ? partnerEx.name : null;
-}
-
-function workoutKeyForDay(idx){
-  return {0:'pushA',1:'pullA',2:'legsA',3:'pushB',4:'pullB',5:'legsB'}[idx]||null;
 }
 
 function isFirstInSuperset(exId, allExercises) {
@@ -1643,7 +1610,7 @@ function isFirstInSuperset(exId, allExercises) {
 
 function renderPRHistory(){
   const el=document.getElementById("pr-history");if(!el)return;
-  const allEx=[];Object.values(PLAN).forEach(d=>d.exercises&&d.exercises.forEach(e=>{if(!e.bwOnly)allEx.push(e);}));
+  const allEx=[];WORKOUT_TYPES.forEach(d=>d.exercises&&d.exercises.forEach(e=>{if(!e.bwOnly)allEx.push(e);}));
   const prs=[];
   allEx.forEach(ex=>{
     const h=H[ex.id]||[];if(h.length<2)return;
@@ -1667,6 +1634,161 @@ function renderPRHistory(){
         <div style="font-size:10px;color:var(--gr);font-weight:600">+${p.gained} lbs</div>
       </div>
     </div>`).join("");
+}
+
+
+// ─── RESCHEDULE / MISSED DAY SYSTEM ──────────────────────────────────────────
+// Track which days have been completed or intentionally skipped
+// Key: "YYYY-MM-DD_dayIdx" → "completed" | "skipped" | "pushed"
+if(!window._dayStatus) window._dayStatus = JSON.parse(localStorage.getItem('dg_dayStatus')||'{}');
+if(!window._cascadeShift) {
+  const saved = localStorage.getItem('dg_cascadeShift');
+  window._cascadeShift = saved ? JSON.parse(saved) : {};
+  // Clear cascade if it was applied on a different day
+  if(window._cascadeShift.applied && window._cascadeShift.applied !== new Date().toISOString().split('T')[0]) {
+    window._cascadeShift = {};
+    localStorage.removeItem('dg_cascadeShift');
+  }
+}
+
+function getDayDate(dayIdx) {
+  // Get the date for a given day index in the current week
+  const today = new Date();
+  const currentDayIdx = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const diff = dayIdx - currentDayIdx;
+  const d = new Date(today);
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split('T')[0];
+}
+
+function isDayInPast(dayIdx) {
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  return dayIdx < todayIdx;
+}
+
+function isDayMissed(dayIdx) {
+  const day = PLAN[dayIdx];
+  if (!day || !day.exercises.length) return false; // rest day
+  if (!isDayInPast(dayIdx)) return false; // not past
+  const dateKey = getDayDate(dayIdx) + '_' + dayIdx;
+  const status = window._dayStatus[dateKey];
+  // If cascade shift is active, days that are shifted aren't missed
+  if(window._cascadeShift && window._cascadeShift.active && dayIdx >= window._cascadeShift.from) return false;
+  // Missed = past workout day with no status logged
+  return !status;
+}
+
+function markDayCompleted(dayIdx) {
+  const dateKey = getDayDate(dayIdx) + '_' + dayIdx;
+  window._dayStatus[dateKey] = 'completed';
+  localStorage.setItem('dg_dayStatus', JSON.stringify(window._dayStatus));
+}
+
+function rescheduleToToday(fromDayIdx) {
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const dateKey = getDayDate(fromDayIdx) + '_' + fromDayIdx;
+  window._dayStatus[dateKey] = 'pushed';
+  localStorage.setItem('dg_dayStatus', JSON.stringify(window._dayStatus));
+  window._rescheduledWorkout = fromDayIdx;
+  selDay = todayIdx;
+  renderDays();
+  renderWorkout();
+  hideTucker();
+  // Ask about cascading remaining workouts
+  const remaining = [];
+  for(let i = todayIdx + 1; i < 7; i++) {
+    const d = PLAN[i];
+    if(d && d.exercises.length) remaining.push(DAYS[i] + " (" + d.name + ")");
+  }
+  if(remaining.length) {
+    setTimeout(() => {
+      showTucker(
+        "judgy",
+        "Shift everything forward?",
+        "Push A is now today. Want to shift " + remaining.join(", ") + " each forward by one day too?",
+        "Yes, shift all forward",
+        "blue",
+        "No, leave them",
+        "hideTucker()"
+      );
+      setTimeout(() => {
+        const btn = document.querySelector(".tdismiss.blue");
+        if(btn) btn.onclick = () => { cascadeForward(fromDayIdx); hideTucker(); };
+      }, 100);
+    }, 800);
+  } else {
+    toast("Workout moved to today. Tucker is relieved.");
+  }
+}
+
+function cascadeForward(fromDayIdx) {
+  // Mark all remaining workout days this week as shifted forward by 1
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  if(!window._cascadeShift) window._cascadeShift = {};
+  // Everything after today gets shifted +1 day in display
+  window._cascadeShift.active = true;
+  window._cascadeShift.from = todayIdx + 1;
+  window._cascadeShift.applied = new Date().toISOString().split('T')[0];
+  localStorage.setItem('dg_cascadeShift', JSON.stringify(window._cascadeShift));
+  renderDays();
+  renderWorkout();
+  toast("All remaining workouts shifted forward. Tucker approves of the plan.");
+}
+
+function rescheduleToTomorrow(fromDayIdx) {
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const tomorrowIdx = (todayIdx + 1) % 7;
+  const dateKey = getDayDate(fromDayIdx) + '_' + fromDayIdx;
+  window._dayStatus[dateKey] = 'pushed';
+  localStorage.setItem('dg_dayStatus', JSON.stringify(window._dayStatus));
+  window._rescheduledWorkout = fromDayIdx;
+  selDay = tomorrowIdx;
+  renderDays();
+  renderWorkout();
+  hideTucker();
+  // Offer cascade
+  const remaining = [];
+  for(let i = tomorrowIdx + 1; i < 7; i++) {
+    const d = PLAN[i];
+    if(d && d.exercises.length) remaining.push(DAYS[i] + " (" + d.name + ")");
+  }
+  if(remaining.length) {
+    setTimeout(() => {
+      showTucker(
+        "judgy",
+        "Shift everything forward too?",
+        "That workout moves to tomorrow. Want to also shift " + remaining.join(", ") + " each forward by one day?",
+        "Yes, shift all forward",
+        "blue",
+        "No, leave them",
+        "hideTucker()"
+      );
+      setTimeout(() => {
+        const btn = document.querySelector(".tdismiss.blue");
+        if(btn) btn.onclick = () => { cascadeForward(fromDayIdx); hideTucker(); };
+      }, 100);
+    }, 800);
+  } else {
+    toast("Workout pushed to tomorrow. Tucker is cautiously optimistic.");
+  }
+}
+
+function promptReschedule(dayIdx) {
+  const day = PLAN[dayIdx];
+  const dayName = DAYS[dayIdx];
+  showTucker(
+    'judgy',
+    'Missed ' + dayName + '.',
+    'Tucker noticed you missed ' + dayName + '. He logged it. He remembers everything. Move it to today or tomorrow?',
+    'Do it today',
+    'blue',
+    'Push to tomorrow',
+    'rescheduleToTomorrow(' + dayIdx + ')'
+  );
+  setTimeout(() => {
+    const btn = document.querySelector('.tdismiss.blue');
+    if (btn) btn.onclick = () => { rescheduleToToday(dayIdx); };
+  }, 100);
 }
 
 function sw(name){
