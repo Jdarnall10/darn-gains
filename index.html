@@ -1693,32 +1693,40 @@ function rescheduleToToday(fromDayIdx) {
   selDay = todayIdx;
   renderDays();
   renderWorkout();
-  hideTucker();
-  // Ask about cascading remaining workouts
+  // Show cascade option as a toast-style banner in the workout area
+  showCascadeBanner(fromDayIdx, todayIdx + 1);
+  toast("Moved to today. Tucker is relieved.");
+}
+
+
+function showCascadeBanner(fromDayIdx, afterIdx) {
   const remaining = [];
-  for(let i = todayIdx + 1; i < 7; i++) {
+  for(let i = afterIdx; i < 7; i++) {
     const d = PLAN[i];
-    if(d && d.exercises.length) remaining.push(DAYS[i] + " (" + d.name + ")");
+    if(d && d.exercises.length) remaining.push(DAYS[i]);
   }
-  if(remaining.length) {
-    setTimeout(() => {
-      showTucker(
-        "judgy",
-        "Shift everything forward?",
-        "Push A is now today. Want to shift " + remaining.join(", ") + " each forward by one day too?",
-        "Yes, shift all forward",
-        "blue",
-        "No, leave them",
-        "hideTucker()"
-      );
-      setTimeout(() => {
-        const btn = document.querySelector(".tdismiss.blue");
-        if(btn) btn.onclick = () => { cascadeForward(fromDayIdx); hideTucker(); };
-      }, 100);
-    }, 800);
-  } else {
-    toast("Workout moved to today. Tucker is relieved.");
-  }
+  if(!remaining.length) return;
+  const existing = document.getElementById('cascade-banner');
+  if(existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.id = 'cascade-banner';
+  banner.style.cssText = 'background:var(--aml);border:1px solid var(--am);border-radius:var(--rad);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size:12px;color:var(--tx);flex:1';
+  label.textContent = 'Shift ' + remaining.join(', ') + ' forward one day too?';
+  const yesBtn = document.createElement('button');
+  yesBtn.textContent = 'Yes, shift all';
+  yesBtn.style.cssText = 'padding:7px 12px;border-radius:var(--rads);border:none;background:var(--am);color:white;font-size:12px;font-weight:600;font-family:DM Sans,sans-serif;cursor:pointer;white-space:nowrap';
+  yesBtn.onclick = () => { cascadeForward(fromDayIdx); banner.remove(); };
+  const noBtn = document.createElement('button');
+  noBtn.textContent = 'No thanks';
+  noBtn.style.cssText = 'padding:7px 10px;border-radius:var(--rads);border:1px solid var(--bd2);background:transparent;color:var(--tx2);font-size:12px;font-weight:500;font-family:DM Sans,sans-serif;cursor:pointer';
+  noBtn.onclick = () => banner.remove();
+  banner.appendChild(label);
+  banner.appendChild(yesBtn);
+  banner.appendChild(noBtn);
+  const area = document.getElementById('workout-area');
+  if(area) area.prepend(banner);
 }
 
 function cascadeForward(fromDayIdx) {
@@ -1745,50 +1753,16 @@ function rescheduleToTomorrow(fromDayIdx) {
   selDay = tomorrowIdx;
   renderDays();
   renderWorkout();
-  hideTucker();
-  // Offer cascade
-  const remaining = [];
-  for(let i = tomorrowIdx + 1; i < 7; i++) {
-    const d = PLAN[i];
-    if(d && d.exercises.length) remaining.push(DAYS[i] + " (" + d.name + ")");
-  }
-  if(remaining.length) {
-    setTimeout(() => {
-      showTucker(
-        "judgy",
-        "Shift everything forward too?",
-        "That workout moves to tomorrow. Want to also shift " + remaining.join(", ") + " each forward by one day?",
-        "Yes, shift all forward",
-        "blue",
-        "No, leave them",
-        "hideTucker()"
-      );
-      setTimeout(() => {
-        const btn = document.querySelector(".tdismiss.blue");
-        if(btn) btn.onclick = () => { cascadeForward(fromDayIdx); hideTucker(); };
-      }, 100);
-    }, 800);
-  } else {
-    toast("Workout pushed to tomorrow. Tucker is cautiously optimistic.");
-  }
+  showCascadeBanner(fromDayIdx, tomorrowIdx + 1);
+  toast("Pushed to tomorrow. Tucker is cautiously optimistic.");
 }
 
 function promptReschedule(dayIdx) {
-  const day = PLAN[dayIdx];
-  const dayName = DAYS[dayIdx];
-  showTucker(
-    'judgy',
-    'Missed ' + dayName + '.',
-    'Tucker noticed you missed ' + dayName + '. He logged it. He remembers everything. Move it to today or tomorrow?',
-    'Do it today',
-    'blue',
-    'Push to tomorrow',
-    'rescheduleToTomorrow(' + dayIdx + ')'
-  );
-  setTimeout(() => {
-    const btn = document.querySelector('.tdismiss.blue');
-    if (btn) btn.onclick = () => { rescheduleToToday(dayIdx); };
-  }, 100);
+  // Navigate to the missed day — the reschedule card renders inline
+  // so the user can tap "Do it today" / "Push to tomorrow" directly
+  selDay = dayIdx;
+  renderDays();
+  renderWorkout();
 }
 
 function sw(name){
