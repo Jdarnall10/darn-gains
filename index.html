@@ -1681,10 +1681,12 @@ function isDayMissed(dayIdx) {
   if (!isDayInPast(dayIdx)) return false; // not past
   const dateKey = getDayDate(dayIdx) + '_' + dayIdx;
   const status = window._dayStatus[dateKey];
-  // If cascade shift is active, days that are shifted aren't missed
+  // Completed = actually saved a session, no longer missed
+  if(status === 'completed') return false;
+  // If cascade shift is active, days from that point forward aren't missed
   if(window._cascadeShift && window._cascadeShift.active && dayIdx >= window._cascadeShift.from) return false;
-  // Missed = past workout day with no status logged
-  return !status;
+  // Missed = past workout day not yet completed (pushed is still "missed" until logged)
+  return true;
 }
 
 function markDayCompleted(dayIdx) {
@@ -1755,9 +1757,7 @@ function cascadeForward(fromDayIdx) {
 function rescheduleToTomorrow(fromDayIdx) {
   const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
   const tomorrowIdx = (todayIdx + 1) % 7;
-  const dateKey = getDayDate(fromDayIdx) + '_' + fromDayIdx;
-  window._dayStatus[dateKey] = 'pushed';
-  localStorage.setItem('dg_dayStatus', JSON.stringify(window._dayStatus));
+  // Don't mark as pushed yet — keep showing reschedule card until session is saved
   window._rescheduledWorkout = fromDayIdx;
   selDay = tomorrowIdx;
   renderDays();
