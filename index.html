@@ -850,7 +850,14 @@ function renderDays(){
       const shiftedIdx = (idx + 1) % 7;
       shiftNote = '<span style="display:block;font-size:8px;color:var(--am);margin-top:1px">→ '+DAYS[shiftedIdx]+'</span>';
     }
-    b.innerHTML='<span class="dl">'+DAYS[idx]+'</span><span class="dn">'+d.name+'</span>'+statusDot+shiftNote;
+    // If this is today and a workout was rescheduled here, show the rescheduled name
+    let displayName = d.name;
+    if(idx === todayI && window._rescheduledWorkout !== undefined && window._rescheduledWorkout !== idx) {
+      const reschedDay = PLAN[window._rescheduledWorkout];
+      if(reschedDay) displayName = reschedDay.name;
+      shiftNote = '<span style="display:block;font-size:8px;color:var(--or);margin-top:1px">moved here</span>';
+    }
+    b.innerHTML='<span class="dl">'+DAYS[idx]+'</span><span class="dn">'+displayName+'</span>'+statusDot+shiftNote;
     if(d.exercises.length){
       b.onclick=()=>{
         if(missed){
@@ -872,7 +879,9 @@ function getCoreExs(day){
 function renderWorkout(){
   const area=document.getElementById('workout-area');
   // If workout was rescheduled from another day, show that plan
-  const effectiveDayIdx = window._rescheduledWorkout !== undefined ? window._rescheduledWorkout : selDay;
+  const effectiveDayIdx = (window._rescheduledWorkout !== undefined && selDay === todayI)
+    ? window._rescheduledWorkout
+    : selDay;
   const day = PLAN[effectiveDayIdx] || PLAN[selDay];
   if(!day||!day.exercises.length){
     area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div></div>';
