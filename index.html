@@ -943,6 +943,32 @@ function renderWorkout(){
   const pct=Math.round((dc/totalSets)*100);
   html+=`<div class="dprog"><div class="dprog-row"><span class="dprog-title">${day.name}</span><span class="dprog-pct">${dc}/${totalSets} · ${pct}%</span></div><div class="pbar"><div class="pfill" id="pfill" style="width:${pct}%"></div></div><div class="dtag">${day.tag}</div></div>`;
 
+  // Phase pill
+  const phase = typeof checkPhaseTransition === 'function' ? checkPhaseTransition() : {num:1,name:'Foundation',weeks:'1-4',color:'var(--bl)'};
+  html += '<div class="phase-pill" style="background:' + phase.color + '20;border:1px solid ' + phase.color + ';margin-bottom:10px">' +
+    '<span style="color:' + phase.color + '">⚡</span>' +
+    '<span style="font-size:11px;font-weight:600;color:var(--tx);margin:0 4px">Phase ' + phase.num + ': ' + phase.name + '</span>' +
+    '<span style="font-size:10px;color:var(--tx2)">Wks ' + phase.weeks + '</span>' +
+  '</div>';
+
+  // Superset suggestions strip
+  const ssMap = {0:'pushA',1:'pullA',2:'legsA',3:'pushB',4:'pullB',5:'rest',6:'legsB'};
+  const workoutKey = ssMap[effectiveDayIdx] || '';
+  const suggestions = getSuggestedSupersets(workoutKey);
+  const unpairedSuggs = suggestions.filter(([a,b]) => !activeSupersets[a] && !activeSupersets[b]);
+  if(unpairedSuggs.length) {
+    html += '<div class="ss-suggest-strip"><span class="ss-suggest-label">💪 Suggested supersets:</span>';
+    unpairedSuggs.slice(0,2).forEach(([a,b]) => {
+      const exA = day.exercises.find(e=>e.id===a);
+      const exB = day.exercises.find(e=>e.id===b);
+      if(exA && exB) {
+        html += '<button class="ss-suggest-btn" onclick="toggleSuperset(\''+a+'\',\''+b+'\');renderWorkout()">'+
+          exA.name.split(' ').pop()+' + '+exB.name.split(' ').pop()+'</button>';
+      }
+    });
+    html += '</div>';
+  }
+
   // EXERCISES
   const icons={up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>',hold:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><path d="M5 12h14"/></svg>',new:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>',pr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'};
 
@@ -960,7 +986,24 @@ function renderWorkout(){
     const nwi=nextWeekIncrease[ex.id];
     const nwiChecked=nwi&&!nwi.applied;
 
-    html+=`<div class="ex-card">
+      // Superset connector between paired exercises
+    const isSecondInSS = activeSupersets[ex.id] && !isFirstInSuperset(ex.id, day.exercises);
+    if(isSecondInSS) html+=`<div class="ss-connector"></div>`;
+
+    html+=`<div class="ex-card${activeSupersets[ex.id]?' ss-paired':''}">`
+
+    // Superset badge
+    const ssPartner = activeSupersets[ex.id];
+    if(ssPartner) {
+      const partnerEx = day.exercises.find(e=>e.id===ssPartner);
+      html+=`<div class="ss-bar">
+        <span class="ss-badge">SUPERSET</span>
+        <span class="ss-bar-label">paired with ${partnerEx?partnerEx.name:'partner'}</span>
+        <button class="ss-remove-btn" onclick="toggleSuperset('${ex.id}','${ssPartner}');renderWorkout()">✕ Remove</button>
+      </div>`;
+    }
+
+    html+=`
       <div class="ex-head">
         <div>
           <div class="ex-name">${eqEx.name}</div>
