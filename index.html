@@ -351,7 +351,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-h
 </div>
 <div id="sec-today" class="sec active">
   <div id="deload-banner"></div>
-  
+  <div id="queue-nav" style="margin-bottom:10px"></div>
   <div class="day-row" id="day-row"></div>
   <div id="workout-area"></div>
 </div>
@@ -531,10 +531,10 @@ const WARMUPS={
 // TRUE BODYWEIGHT exercises — zero equipment, floor only
 const PLAN={
   0:{name:'Push A',tag:'Chest · Shoulders · Triceps',warmup:'push',coreType:'push_light',coreRot:0,exercises:[
-    {id:'bbp',name:'Bench press',sets:4,reps:'8–10',muscle:'Chest',w:135,
+    {id:'bbp',name:'Bench press',sets:4,reps:'8–10',muscle:'Chest',w:135,barbell:true,
      hotel:'DB Bench Press',hotelW:65,dumbbell:'DB Bench Press',dumbbellW:65,
      bwEx:'Push-ups',bwSets:'4×15',bwNote:'Wide grip targets chest'},
-    {id:'incbar',name:'Incline barbell press',sets:3,reps:'8–10',muscle:'Upper chest',w:115,
+    {id:'incbar',name:'Incline barbell press',sets:3,reps:'8–10',muscle:'Upper chest',w:115,barbell:true,
      hotel:'Incline DB Press',hotelW:50,dumbbell:'Incline DB Press',dumbbellW:50,
      bwEx:'Decline push-ups',bwSets:'3×15',bwNote:'Feet elevated on chair'},
     {id:'dbohp',name:'DB shoulder press',sets:3,reps:'8–10',muscle:'Shoulders',w:40,db:true,
@@ -551,19 +551,19 @@ const PLAN={
      bwEx:'Tricep dips on chair',bwSets:'3×max',bwNote:'Hands on chair behind you'},
   ]},
   1:{name:'Pull A',tag:'Back · Biceps',warmup:'pull',coreType:'pull_light',coreRot:0,exercises:[
-    {id:'dl',name:'Deadlift',sets:4,reps:'6–8',muscle:'Posterior chain',w:185,
+    {id:'dl',name:'Deadlift',sets:4,reps:'6–8',muscle:'Posterior chain',w:185,barbell:true,
      hotel:'DB RDL',hotelW:50,dumbbell:'DB RDL',dumbbellW:50,
      bwEx:'Superman holds',bwSets:'4×30s',bwNote:'Lie face down, lift arms + legs'},
     {id:'pup',name:'Pull-ups',sets:3,reps:'AMRAP',muscle:'Lats',w:0,bwOnly:true,
      hotel:'Assisted pull-up machine',dumbbell:'DB Pullover',dumbbellW:30,
      bwEx:'Table rows',bwSets:'3×12',bwNote:'Lie under table, pull chest to edge'},
-    {id:'bbrow',name:'Bent over barbell row',sets:3,reps:'8–10',muscle:'Lats / rhomboids',w:115,
+    {id:'bbrow',name:'Bent over barbell row',sets:3,reps:'8–10',muscle:'Lats / rhomboids',w:115,barbell:true,
      hotel:'DB Row',hotelW:50,dumbbell:'DB Row',dumbbellW:50,
      bwEx:'Prone back squeeze',bwSets:'3×15',bwNote:'Lie face down, squeeze shoulder blades'},
     {id:'cabrow',name:'Seated cable row',sets:3,reps:'10',muscle:'Mid-back',w:80,
      hotel:'DB Row',hotelW:45,dumbbell:'DB Row',dumbbellW:45,
      bwEx:'Towel row (door)',bwSets:'3×12',bwNote:'Loop towel around door handle, lean back and row'},
-    {id:'bbcurl',name:'Barbell / EZ curl',sets:3,reps:'10–12',muscle:'Biceps',w:55,
+    {id:'bbcurl',name:'Barbell / EZ curl',sets:3,reps:'10–12',muscle:'Biceps',w:55,barbell:true,
      hotel:'DB Curl',hotelW:35,dumbbell:'DB Curl',dumbbellW:35,
      bwEx:'Towel bicep curl',bwSets:'3×12',bwNote:'Stand on towel ends, curl up'},
     {id:'hamcrl',name:'Hammer curl',sets:3,reps:'10',muscle:'Biceps',w:35,db:true,
@@ -571,10 +571,10 @@ const PLAN={
      bwEx:'Isometric curl hold',bwSets:'3×30s',bwNote:'Press palm up under table edge'},
   ]},
   2:{name:'Legs A',tag:'Quads · Hamstrings · Glutes · Calves',warmup:'legs',coreType:'legs_heavy',coreRot:0,exercises:[
-    {id:'bsq',name:'Back squat',sets:4,reps:'8–10',muscle:'Quads / glutes',w:135,
+    {id:'bsq',name:'Back squat',sets:4,reps:'8–10',muscle:'Quads / glutes',w:135,barbell:true,
      hotel:'DB Goblet Squat',hotelW:50,dumbbell:'DB Goblet Squat',dumbbellW:50,
      bwEx:'Bodyweight squat',bwSets:'4×20',bwNote:'Slow 3s down, full depth'},
-    {id:'rdl',name:'Romanian deadlift',sets:3,reps:'10',muscle:'Hamstrings',w:115,
+    {id:'rdl',name:'Romanian deadlift',sets:3,reps:'10',muscle:'Hamstrings',w:115,barbell:true,
      hotel:'DB RDL',hotelW:50,dumbbell:'DB RDL',dumbbellW:50,
      bwEx:'Single-leg RDL',bwSets:'3×10 each',bwNote:'Balance on one leg, hinge forward'},
     {id:'lunge',name:'Walking lunges',sets:3,reps:'12 each',muscle:'Quads / glutes',w:0,bwOnly:true,
@@ -628,7 +628,7 @@ const PLAN={
      bwEx:'Towel curl',bwSets:'3×12',bwNote:'Stand on towel, grip ends, curl up'},
   ]},
   5:{name:'Legs B',tag:'Quads · Hamstrings · Glutes',warmup:'legs',coreType:'legs_heavy',coreRot:1,exercises:[
-    {id:'bsqb',name:'Back squat',sets:3,reps:'8',muscle:'Quads / glutes',w:135,
+    {id:'bsqb',name:'Back squat',sets:3,reps:'8',muscle:'Quads / glutes',w:135,barbell:true,
      hotel:'DB Goblet Squat',hotelW:50,dumbbell:'DB Goblet Squat',dumbbellW:50,
      bwEx:'Jump squat',bwSets:'3×12',bwNote:'Explosive up, soft landing'},
     {id:'bss',name:'Bulgarian split squat',sets:3,reps:'10 each',muscle:'Quads / glutes',w:0,bwOnly:true,
@@ -637,7 +637,7 @@ const PLAN={
     {id:'legcr',name:'Leg curl',sets:3,reps:'12',muscle:'Hamstrings',w:60,
      hotel:'DB Leg Curl',hotelW:25,dumbbell:'DB Leg Curl',dumbbellW:25,
      bwEx:'Nordic curl',bwSets:'3×6',bwNote:'Kneel, anchor feet under couch, lower slowly'},
-    {id:'hipthr',name:'Hip thrust',sets:3,reps:'10',muscle:'Glutes',w:135,
+    {id:'hipthr',name:'Hip thrust',sets:3,reps:'10',muscle:'Glutes',w:135,barbell:true,
      hotel:'DB Hip Thrust',hotelW:50,dumbbell:'DB Hip Thrust',dumbbellW:50,
      bwEx:'Single-leg glute bridge',bwSets:'3×15 each',bwNote:'One leg raised, drive hips up'},
     {id:'calfb',name:'Standing calf raise',sets:4,reps:'15',muscle:'Calves',w:100,
@@ -666,8 +666,12 @@ const CORE_ROTATIONS={
 // STATE
 let W={},H={},CH=[],MEAS=[],PROT=[],SLEEP=[],WATER={};
 let done={},coreDone={},warmupDone={},exEffort={},setResults={},nextWeekIncrease={};
-let selDay=todayI,equipMode='full',perExEquip={},saveTimer=null;
-const programStartDate=new Date(localStorage.getItem('dg_start')||(()=>{const d=new Date().toISOString().split('T')[0];localStorage.setItem('dg_start',d);return d;})());
+// Workout queue — decoupled from the actual calendar day so missing days doesn't create rigid "missed" pressure.
+// queueIdx tracks "next workout in the rotation" and only advances when a session is saved (or manually nudged).
+let queueIdx=parseInt(localStorage.getItem('dg_queueIdx'));
+if(isNaN(queueIdx))queueIdx=todayI;
+let selDay=queueIdx,equipMode='full',perExEquip={},saveTimer=null;
+let programStartDate=new Date(localStorage.getItem('dg_start')||(()=>{const d=new Date().toISOString().split('T')[0];localStorage.setItem('dg_start',d);return d;})());
 
 // SUPABASE
 async function loadData(){
@@ -676,6 +680,7 @@ async function loadData(){
   try{
     const loc=JSON.parse(localStorage.getItem('dg_backup')||'{}');
     if(loc.W){W=loc.W||{};H=loc.H||{};CH=loc.CH||[];MEAS=loc.MEAS||[];PROT=loc.PROT||[];SLEEP=loc.SLEEP||[];WATER=loc.WATER||{};nextWeekIncrease=loc.nextWeekIncrease||{};}
+    if(loc.queueIdx!==undefined){queueIdx=loc.queueIdx;selDay=queueIdx;}
   }catch(e2){}
   seedDefaults();
   applyPendingIncreases();
@@ -697,6 +702,7 @@ async function loadData(){
       W=d.W||{};H=d.H||{};CH=d.CH||[];MEAS=d.MEAS||[];PROT=d.PROT||[];
       SLEEP=d.SLEEP||[];WATER=d.WATER||{};
       nextWeekIncrease=d.nextWeekIncrease||{};
+      if(d.queueIdx!==undefined){queueIdx=d.queueIdx;selDay=queueIdx;}
       seedDefaults();applyPendingIncreases();
       renderAll();setSS('ok','synced');
     }
@@ -725,7 +731,7 @@ function applyPendingIncreases(){
 
 async function persist(){
   setSS('saving','saving...');
-  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease};
+  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease,queueIdx};
   // Always save locally first — instant and never fails
   try{localStorage.setItem('dg_backup',JSON.stringify(payload));}catch(e){}
   // Then push to Supabase with timeout
@@ -772,10 +778,56 @@ function suggest(id,sets){
 function setEquip(mode){equipMode=mode;perExEquip={};renderWorkout();}
 function setPerExEquip(exId,mode){perExEquip[exId]=mode;renderWorkout();}
 
+// Plate math for true 45lb-Olympic-bar lifts (bench, incline bench, squat, deadlift, RDL,
+// barbell row, barbell curl, hip thrust) — flagged via ex.barbell in PLAN. Only shown in
+// 'full' gym mode since a hotel/DB/bodyweight swap isn't loaded with plates.
+function plateMathStr(total){
+  total=parseFloat(total)||0;
+  const bar=45;
+  if(total<=0)return'';
+  if(total<bar)return'below 45 lb bar';
+  const perSide=Math.round(((total-bar)/2)*4)/4;
+  if(perSide===0)return'bar only (45 lbs)';
+  return perSide+' lbs/side (+45 bar)';
+}
+function updatePlateDisplay(exId,val){
+  const txt=plateMathStr(val);
+  const a=document.getElementById('plate_'+exId);if(a)a.textContent=txt;
+  const b=document.getElementById('meta_plate_'+exId);if(b)b.textContent=txt;
+}
+
 function renderAll(){
-  renderDeloadBanner();renderDays();renderWorkout();renderProgress();
+  renderDeloadBanner();renderDays();renderQueueNav();renderWorkout();renderProgress();
   renderCardioHist();renderProteinBar();renderPuProg();
   renderMeasSnapshot();renderMeasTable();renderPlan();updateWeekLabel();
+}
+
+// Queue nav: shows "up next" workout independent of calendar day, with manual nudge controls.
+// This is the fix for rigidity — missing days no longer forces a reschedule flow; the queue
+// just remembers where you left off and you can jump forward/back freely.
+function persistQueueIdx(){
+  try{localStorage.setItem('dg_queueIdx',queueIdx);}catch(e){}
+  schedPersist();
+}
+function advanceQueue(){
+  queueIdx=(queueIdx+1)%7;persistQueueIdx();selDay=queueIdx;
+  renderDays();renderQueueNav();renderWorkout();
+}
+function rewindQueue(){
+  queueIdx=(queueIdx+6)%7;persistQueueIdx();selDay=queueIdx;
+  renderDays();renderQueueNav();renderWorkout();
+}
+function renderQueueNav(){
+  const el=document.getElementById('queue-nav');if(!el)return;
+  const wk=PLAN[queueIdx];if(!wk)return;
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;background:var(--orl);border:1px solid var(--orm);border-radius:var(--rads);padding:9px 12px">
+    <button onclick="rewindQueue()" style="background:none;border:none;color:var(--or);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;-webkit-tap-highlight-color:transparent">‹</button>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:9px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.05em">Up next in your rotation</div>
+      <div style="font-size:13px;font-weight:600;color:var(--ord);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${wk.name}${wk.exercises.length?' — '+wk.tag:''}</div>
+    </div>
+    <button onclick="advanceQueue()" style="background:none;border:none;color:var(--or);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;-webkit-tap-highlight-color:transparent">›</button>
+  </div>`;
 }
 
 function updateWeekLabel(){
@@ -830,43 +882,20 @@ function logSleep(val){
 }
 
 function renderDays(){
+  // Day buttons are now purely a picker for workout TYPE — always freely clickable, no
+  // "missed" gating or forced reschedule flow. The queue (see renderQueueNav) is what
+  // actually tracks "where you are"; this row is just calendar orientation + quick access.
   const g=document.getElementById('day-row');g.innerHTML='';
   Object.entries(PLAN).forEach(([i,d])=>{
     const idx=parseInt(i);const b=document.createElement('div');
-    const missed=isDayMissed(idx);
-    const dateKey=getDayDate(idx)+'_'+idx;
-    const completed=window._dayStatus[dateKey]==='completed';
     let cls='day-btn';
     if(idx===selDay)cls+=' active';
     if(!d.exercises.length)cls+=' rest';
     if(idx===todayI)cls+=' today';
-    if(missed)cls+=' missed-dot';
     b.className=cls;
-    const statusDot=missed?'<span style="display:block;font-size:8px;color:var(--bl);margin-top:1px">missed</span>':
-                    completed?'<span style="display:block;font-size:8px;color:var(--gr);margin-top:1px">done</span>':'';
-    // Show cascade shift indicator
-    let shiftNote = '';
-    if(window._cascadeShift && window._cascadeShift.active && idx >= window._cascadeShift.from) {
-      const shiftedIdx = (idx + 1) % 7;
-      shiftNote = '<span style="display:block;font-size:8px;color:var(--am);margin-top:1px">→ '+DAYS[shiftedIdx]+'</span>';
-    }
-    // If this is today and a workout was rescheduled here, show the rescheduled name
-    let displayName = d.name;
-    if(idx === todayI && window._rescheduledWorkout !== undefined && window._rescheduledWorkout !== idx) {
-      const reschedDay = PLAN[window._rescheduledWorkout];
-      if(reschedDay) displayName = reschedDay.name;
-      shiftNote = '<span style="display:block;font-size:8px;color:var(--or);margin-top:1px">moved here</span>';
-    }
-    b.innerHTML='<span class="dl">'+DAYS[idx]+'</span><span class="dn">'+displayName+'</span>'+statusDot+shiftNote;
-    if(d.exercises.length){
-      b.onclick=()=>{
-        if(missed){
-          promptReschedule(idx);
-        } else {
-          selDay=idx;renderDays();renderWorkout();
-        }
-      };
-    }
+    const nextTag=idx===queueIdx?'<span style="display:block;font-size:8px;color:var(--or);margin-top:1px;font-weight:700">NEXT</span>':'';
+    b.innerHTML='<span class="dl">'+DAYS[idx]+'</span><span class="dn">'+d.name+'</span>'+nextTag;
+    b.onclick=()=>{selDay=idx;renderDays();renderWorkout();};
     g.appendChild(b);
   });
 }
@@ -894,18 +923,7 @@ function renderWorkout(){
   const cardioLogged=todayCardio.length>0;
   const selCardioType=window._cardioType||'Run outside';
   const ctBtns=['Run outside','Treadmill','Bike'].map(t=>`<button class="ct-btn${selCardioType===t?' active':''}" onclick="window._cardioType='${t}';renderWorkout()">${t}</button>`).join('');
-  // Missed day banner — show if viewing a past workout that wasn't logged
   let html='';
-  if(isDayMissed(selDay)){
-    html+=`<div class="reschedule-card">
-      <div class="reschedule-title">😬 You missed ${DAYS[selDay]}</div>
-      <div class="reschedule-sub">${day.name} was never logged. Tucker noticed.<br>Move it to today, push to tomorrow, or scroll down to log it now.</div>
-      <div class="reschedule-btns">
-        <button class="reschedule-btn" onclick="rescheduleToToday(${selDay})">Do it today</button>
-        <button class="reschedule-btn secondary" onclick="rescheduleToTomorrow(${selDay})">Push to tomorrow</button>
-      </div>
-    </div>`;
-  }
   html+=`<div class="cardio-top-card">
     <div class="cardio-top-title">🏃 Today's cardio${cardioLogged?' <span style="color:var(--gr);font-size:11px">✓ logged</span>':''}</div>
     <div class="cardio-toggle">${ctBtns}</div>
@@ -1007,7 +1025,7 @@ function renderWorkout(){
       <div class="ex-head">
         <div>
           <div class="ex-name">${eqEx.name}</div>
-          <div class="ex-meta">${sets}×${ex.reps}${dispW?' · '+dispW+' lbs'+dbNote:''}${eqEx.note?' · <em style="font-size:10px;color:var(--tx3)">'+eqEx.note+'</em>':''}</div>
+          <div class="ex-meta">${sets}×${ex.reps}${dispW?' · '+dispW+' lbs'+dbNote:''}${eqEx.note?' · <em style="font-size:10px;color:var(--tx3)">'+eqEx.note+'</em>':''}${ex.barbell&&curMode==='full'&&!isBW?' · <span id="meta_plate_'+ex.id+'" style="color:var(--pu)">'+plateMathStr(dispW||w)+'</span>':''}</div>
         </div>
         <span class="mtag">${ex.muscle}</span>
       </div>
@@ -1033,9 +1051,12 @@ function renderWorkout(){
     if(!isBW&&!isBWonly){
       html+=`<div style="display:flex;align-items:center;gap:8px;margin-top:7px;padding:7px 9px;background:var(--sf2);border-radius:var(--rads)">
         <span style="font-size:11px;color:var(--tx2);flex:1">Weight this session</span>
-        <input type="number" value="${dispW||w}" min="0" step="2.5" style="width:80px;padding:5px;font-size:12px;border:1px solid var(--bd2);border-radius:6px;background:var(--sf);color:var(--tx);text-align:center;font-family:'DM Mono',monospace" onchange="uw('${ex.id}',this.value,'${curMode}')">
+        <input type="number" value="${dispW||w}" min="0" step="2.5" style="width:80px;padding:5px;font-size:12px;border:1px solid var(--bd2);border-radius:6px;background:var(--sf);color:var(--tx);text-align:center;font-family:'DM Mono',monospace" onchange="uw('${ex.id}',this.value,'${curMode}');updatePlateDisplay('${ex.id}',this.value)">
         <span style="font-size:11px;color:var(--tx3)">lbs${ex.db&&!isBW?' per arm':''}</span>
       </div>`;
+      if(ex.barbell&&curMode==='full'){
+        html+=`<div id="plate_${ex.id}" style="font-size:10px;color:var(--pu);margin-top:4px;font-family:'DM Mono',monospace">${plateMathStr(dispW||w)}</div>`;
+      }
     }
 
     if(ex.id==='pup'){html+=`<div class="hint pu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>At 3 pull-ups — Cardio tab for 8-week plan.</div>`;}
@@ -1196,14 +1217,22 @@ function saveSession(){
   });
   const notes=document.getElementById('sess-notes')?.value||'';
   if(!window._sessNotes)window._sessNotes={};window._sessNotes[selDay]=notes;
-  persist();
   markDayCompleted(selDay);
+  // Advance the rotation to whatever comes after the workout just logged — this is what lets
+  // catching up on several missed days "just work": the app always points at the right next
+  // workout regardless of which real weekday it is.
+  if(day.exercises.length){
+    queueIdx=(selDay+1)%7;
+    persistQueueIdx();
+    selDay=queueIdx;
+  }
+  persist();
   if(newPRs.length){
     showTucker('pr','NEW PERSONAL RECORD',''+newPRs.join(' & ')+' — Tucker has never been more proud. Don\'t make it weird. He\'s still a dog.','LETS GO! 🏆','gold');
   }else{
     showTucker("proud",tuck(),"Session saved. The gains are compounding. Tucker approves of your consistency.","Keep going 💪","");
   }
-  renderWorkout();renderProgress();
+  renderDays();renderQueueNav();renderWorkout();renderProgress();
 }
 
 function saveCardio(){
@@ -1377,9 +1406,55 @@ function exportCSV(){
   const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='darn_gains_'+new Date().toISOString().split('T')[0]+'.csv';a.click();URL.revokeObjectURL(url);
   toast('Exported! Tucker filed his copy.');
 }
+// Program reset / catch-up controls. Moves programStartDate (which drives getCurrentPhase())
+// without touching any logged weights, history, or the workout queue.
+function resetProgramToWeek(weekNum){
+  weekNum=Math.max(1,parseInt(weekNum)||1);
+  const newStart=new Date();
+  newStart.setDate(newStart.getDate()-((weekNum-1)*7));
+  programStartDate=newStart;
+  try{localStorage.setItem('dg_start',newStart.toISOString().split('T')[0]);}catch(e){}
+  try{localStorage.removeItem('dg_last_phase');}catch(e){}
+  updateWeekLabel();
+  renderWorkout();
+  renderPlan();
+  toast('Program set to Week '+weekNum+'. Tucker approves of the fresh start.');
+}
+function restartProgramFull(){resetProgramToWeek(1);}
+function restartCurrentPhase(){
+  const phase=getCurrentPhase();
+  const phaseStartWeek=phase.num===1?1:phase.num===2?5:9;
+  const targetOverallWeek=(phase.cycleNum-1)*12+phaseStartWeek;
+  resetProgramToWeek(targetOverallWeek);
+}
+function jumpToWeekFromInput(){
+  const val=document.getElementById('jump-week-input')?.value;
+  resetProgramToWeek(val);
+}
+
 function renderPlan(){
   const el=document.getElementById('plan-view');if(!el)return;
-  el.innerHTML=Object.entries(PLAN).map(([i,d])=>`<div class="plan-card"><div class="plan-head"><div><div class="plan-name">${DAYS[parseInt(i)]} — ${d.name}</div><div class="plan-tag">${d.tag}</div></div>${d.exercises.length?`<span class="exc-badge">${d.exercises.length} ex</span>`:'<span class="rest-badge2">rest</span>'}</div>${d.exercises.length?`<div class="plan-chips">${d.exercises.map(e=>`<span class="pchip">${e.name}${!e.bwOnly?' · '+e.w+(e.db?' per arm':'')+'lb':''}</span>`).join('')}</div>`:''}</div>`).join('');
+  const phase=getCurrentPhase();
+  const currentOverallWeek=(phase.cycleNum-1)*12+phase.cycleWeek;
+  const controlsHtml=`<div class="plan-card" style="border-color:var(--or)">
+    <div class="plan-head">
+      <div>
+        <div class="plan-name">Program status</div>
+        <div class="plan-tag">Phase ${phase.num}: ${phase.name} · Week ${phase.cycleWeek} of 12${phase.cycleNum>1?' · Cycle '+phase.cycleNum:''}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <button class="peq-btn" onclick="restartCurrentPhase()">Restart this phase</button>
+      <button class="peq-btn" onclick="restartProgramFull()">Restart entire program</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+      <span style="font-size:11px;color:var(--tx2)">Jump to week:</span>
+      <input type="number" id="jump-week-input" min="1" max="99" value="${currentOverallWeek}" style="width:60px;padding:5px;font-size:12px;border:1px solid var(--bd2);border-radius:6px;background:var(--sf);color:var(--tx);text-align:center">
+      <button class="peq-btn" onclick="jumpToWeekFromInput()">Go</button>
+    </div>
+    <div style="font-size:10px;color:var(--tx3);margin-top:6px">Falling behind? Reset the phase clock to catch back up — this only affects rep/weight suggestions, never your logged history.</div>
+  </div>`;
+  el.innerHTML=controlsHtml+Object.entries(PLAN).map(([i,d])=>`<div class="plan-card"><div class="plan-head"><div><div class="plan-name">${DAYS[parseInt(i)]} — ${d.name}</div><div class="plan-tag">${d.tag}</div></div>${d.exercises.length?`<span class="exc-badge">${d.exercises.length} ex</span>`:'<span class="rest-badge2">rest</span>'}</div>${d.exercises.length?`<div class="plan-chips">${d.exercises.map(e=>`<span class="pchip">${e.name}${!e.bwOnly?' · '+e.w+(e.db?' per arm':'')+'lb':''}</span>`).join('')}</div>`:''}</div>`).join('');
 }
 
 function renderTukTab(){
