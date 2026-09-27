@@ -502,6 +502,47 @@ function checkPhaseTransition(){
   return phase;
 }
 
+// ─── WEEKLY COMPLIANCE / AUTO-REPEAT ──────────────────────────────────────
+// If 2+ scheduled workouts are missed in a real calendar week, the phase clock doesn't
+// advance — programStartDate is pushed forward by 7 days so next week repeats the same
+// build week. This only shifts phase/rep/weight suggestions; it never touches logged
+// history, SESSLOG, or the workout queue.
+function getExpectedTrainingDays(){
+  return Object.values(PLAN).filter(d=>d.exercises&&d.exercises.length>0).length;
+}
+function countSessionsInRange(startStr,endStr){
+  const dates=new Set(SESSLOG.filter(s=>s.date>=startStr&&s.date<endStr).map(s=>s.date));
+  return dates.size;
+}
+function checkWeeklyCompliance(){
+  const msPerDay=24*60*60*1000;
+  let evaluatedThrough=localStorage.getItem('dg_compliance_through');
+  evaluatedThrough=evaluatedThrough?new Date(evaluatedThrough):new Date(programStartDate);
+  const today=new Date();
+  let weekStart=new Date(evaluatedThrough);
+  let changed=false;
+  let guard=0;
+  while(true){
+    const weekEnd=new Date(weekStart.getTime()+7*msPerDay);
+    if(weekEnd>today||guard>26)break; // never evaluate a partial/future week; cap the catch-up walk
+    guard++;
+    const startStr=weekStart.toISOString().split('T')[0];
+    const endStr=weekEnd.toISOString().split('T')[0];
+    const expected=getExpectedTrainingDays();
+    const completed=countSessionsInRange(startStr,endStr);
+    const missed=Math.max(0,expected-completed);
+    if(missed>=2){
+      programStartDate=new Date(programStartDate.getTime()+7*msPerDay);
+      try{localStorage.setItem('dg_start',programStartDate.toISOString().split('T')[0]);}catch(e){}
+      try{localStorage.removeItem('dg_last_phase');}catch(e){}
+      changed=true;
+    }
+    weekStart=weekEnd;
+  }
+  try{localStorage.setItem('dg_compliance_through',weekStart.toISOString().split('T')[0]);}catch(e){}
+  if(changed){updateWeekLabel();renderWorkout();renderPlan();}
+}
+
 
 // WARMUPS tailored per day type
 const WARMUPS={
@@ -532,116 +573,116 @@ const WARMUPS={
 const PLAN={
   0:{name:'Push A',tag:'Chest · Shoulders · Triceps',warmup:'push',coreType:'push_light',coreRot:0,exercises:[
     {id:'bbp',name:'Bench press',sets:4,reps:'8–10',muscle:'Chest',w:135,barbell:true,
-     hotel:'DB Bench Press',hotelW:65,dumbbell:'DB Bench Press',dumbbellW:65,
+     alt:'Machine Chest Press',altW:100,dumbbell:'DB Bench Press',dumbbellW:65,
      bwEx:'Push-ups',bwSets:'4×15',bwNote:'Wide grip targets chest'},
     {id:'incbar',name:'Incline barbell press',sets:3,reps:'8–10',muscle:'Upper chest',w:115,barbell:true,
-     hotel:'Incline DB Press',hotelW:50,dumbbell:'Incline DB Press',dumbbellW:50,
+     alt:'Incline Machine Press',altW:90,dumbbell:'Incline DB Press',dumbbellW:50,
      bwEx:'Decline push-ups',bwSets:'3×15',bwNote:'Feet elevated on chair'},
     {id:'dbohp',name:'DB shoulder press',sets:3,reps:'8–10',muscle:'Shoulders',w:40,db:true,
-     hotel:'DB Shoulder Press',hotelW:40,dumbbell:'DB Shoulder Press',dumbbellW:40,
+     alt:'Machine Shoulder Press',altW:70,dumbbell:'DB Shoulder Press',dumbbellW:40,
      bwEx:'Pike push-ups',bwSets:'3×12',bwNote:'Hips high, vertical press'},
     {id:'latr',name:'Lateral raises',sets:3,reps:'12–15',muscle:'Lateral delts',w:22.5,db:true,
-     hotel:'DB Lateral Raise',hotelW:15,dumbbell:'DB Lateral Raise',dumbbellW:15,
+     alt:'Cable Lateral Raise',altW:12.5,dumbbell:'DB Lateral Raise',dumbbellW:15,
      bwEx:'Prone Y-raise',bwSets:'3×15',bwNote:'Lie face down, arms form Y'},
     {id:'tricpd',name:'Cable tricep pushdown',sets:3,reps:'10–12',muscle:'Triceps',w:50,
-     hotel:'DB Overhead Ext.',hotelW:30,dumbbell:'DB Overhead Ext.',dumbbellW:30,
+     alt:'EZ-Bar Skullcrusher',altW:40,dumbbell:'DB Overhead Ext.',dumbbellW:30,
      bwEx:'Diamond push-ups',bwSets:'3×12',bwNote:'Hands close together'},
     {id:'ohtri',name:'Overhead tricep ext.',sets:3,reps:'10',muscle:'Triceps',w:40,
-     hotel:'DB Kickback',hotelW:20,dumbbell:'DB Kickback',dumbbellW:20,
+     alt:'Cable Overhead Extension',altW:40,dumbbell:'DB Kickback',dumbbellW:20,
      bwEx:'Tricep dips on chair',bwSets:'3×max',bwNote:'Hands on chair behind you'},
   ]},
   1:{name:'Pull A',tag:'Back · Biceps',warmup:'pull',coreType:'pull_light',coreRot:0,exercises:[
     {id:'dl',name:'Deadlift',sets:4,reps:'6–8',muscle:'Posterior chain',w:185,barbell:true,
-     hotel:'DB RDL',hotelW:50,dumbbell:'DB RDL',dumbbellW:50,
+     alt:'Trap Bar Deadlift',altW:185,dumbbell:'DB RDL',dumbbellW:50,
      bwEx:'Superman holds',bwSets:'4×30s',bwNote:'Lie face down, lift arms + legs'},
     {id:'pup',name:'Pull-ups',sets:3,reps:'AMRAP',muscle:'Lats',w:0,bwOnly:true,
-     hotel:'Assisted pull-up machine',dumbbell:'DB Pullover',dumbbellW:30,
+     alt:'Lat Pulldown',altW:100,dumbbell:'DB Pullover',dumbbellW:30,
      bwEx:'Table rows',bwSets:'3×12',bwNote:'Lie under table, pull chest to edge'},
     {id:'bbrow',name:'Bent over barbell row',sets:3,reps:'8–10',muscle:'Lats / rhomboids',w:115,barbell:true,
-     hotel:'DB Row',hotelW:50,dumbbell:'DB Row',dumbbellW:50,
+     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'DB Row',dumbbellW:50,
      bwEx:'Prone back squeeze',bwSets:'3×15',bwNote:'Lie face down, squeeze shoulder blades'},
     {id:'cabrow',name:'Seated cable row',sets:3,reps:'10',muscle:'Mid-back',w:80,
-     hotel:'DB Row',hotelW:45,dumbbell:'DB Row',dumbbellW:45,
+     alt:'Machine Row',altW:90,dumbbell:'DB Row',dumbbellW:45,
      bwEx:'Towel row (door)',bwSets:'3×12',bwNote:'Loop towel around door handle, lean back and row'},
     {id:'bbcurl',name:'Barbell / EZ curl',sets:3,reps:'10–12',muscle:'Biceps',w:55,barbell:true,
-     hotel:'DB Curl',hotelW:35,dumbbell:'DB Curl',dumbbellW:35,
+     alt:'Cable Bar Curl',altW:50,dumbbell:'DB Curl',dumbbellW:35,
      bwEx:'Towel bicep curl',bwSets:'3×12',bwNote:'Stand on towel ends, curl up'},
     {id:'hamcrl',name:'Hammer curl',sets:3,reps:'10',muscle:'Biceps',w:35,db:true,
-     hotel:'Hammer Curl',hotelW:30,dumbbell:'Hammer Curl',dumbbellW:30,
+     alt:'Cable Rope Hammer Curl',altW:25,dumbbell:'Hammer Curl',dumbbellW:30,
      bwEx:'Isometric curl hold',bwSets:'3×30s',bwNote:'Press palm up under table edge'},
   ]},
   2:{name:'Legs A',tag:'Quads · Hamstrings · Glutes · Calves',warmup:'legs',coreType:'legs_heavy',coreRot:0,exercises:[
     {id:'bsq',name:'Back squat',sets:4,reps:'8–10',muscle:'Quads / glutes',w:135,barbell:true,
-     hotel:'DB Goblet Squat',hotelW:50,dumbbell:'DB Goblet Squat',dumbbellW:50,
+     alt:'Leg Press',altW:180,dumbbell:'DB Goblet Squat',dumbbellW:50,
      bwEx:'Bodyweight squat',bwSets:'4×20',bwNote:'Slow 3s down, full depth'},
     {id:'rdl',name:'Romanian deadlift',sets:3,reps:'10',muscle:'Hamstrings',w:115,barbell:true,
-     hotel:'DB RDL',hotelW:50,dumbbell:'DB RDL',dumbbellW:50,
+     alt:'Cable Pull-Through',altW:70,dumbbell:'DB RDL',dumbbellW:50,
      bwEx:'Single-leg RDL',bwSets:'3×10 each',bwNote:'Balance on one leg, hinge forward'},
     {id:'lunge',name:'Walking lunges',sets:3,reps:'12 each',muscle:'Quads / glutes',w:0,bwOnly:true,
-     hotel:'DB Lunge',hotelW:30,dumbbell:'DB Lunge',dumbbellW:30,
+     alt:'Smith Machine Lunge',altW:40,dumbbell:'DB Lunge',dumbbellW:30,
      bwEx:'Walking lunges',bwSets:'3×12 each',bwNote:'Long stride, knee almost to floor'},
     {id:'lgpr',name:'Leg press',sets:3,reps:'10',muscle:'Quads',w:180,
-     hotel:'DB Step-up',hotelW:30,dumbbell:'DB Step-up',dumbbellW:30,
+     alt:'Hack Squat Machine',altW:160,dumbbell:'DB Step-up',dumbbellW:30,
      bwEx:'Bulgarian split squat',bwSets:'3×10 each',bwNote:'Back foot on chair, front leg works'},
     {id:'calf',name:'Calf raise',sets:4,reps:'15–20',muscle:'Calves',w:100,
-     hotel:'DB Calf Raise',hotelW:40,dumbbell:'DB Calf Raise',dumbbellW:40,
+     alt:'Leg Press Calf Raise',altW:140,dumbbell:'DB Calf Raise',dumbbellW:40,
      bwEx:'Single-leg calf raise',bwSets:'4×15 each',bwNote:'Use wall for balance'},
   ]},
   3:{name:'Push B',tag:'Chest · Shoulders · Triceps (variation)',warmup:'push',coreType:'push_light',coreRot:1,exercises:[
     {id:'dbflt',name:'DB flat bench press',sets:3,reps:'10',muscle:'Chest',w:65,db:true,
-     hotel:'DB Bench Press',hotelW:60,dumbbell:'DB Bench Press',dumbbellW:60,
+     alt:'Machine Chest Press',altW:100,dumbbell:'DB Bench Press',dumbbellW:60,
      bwEx:'Push-up variations',bwSets:'3×15',bwNote:'Wide / normal / close in sequence'},
     {id:'incdb',name:'Incline DB press',sets:3,reps:'10–12',muscle:'Upper chest',w:50,db:true,
-     hotel:'Incline DB Press',hotelW:45,dumbbell:'Incline DB Press',dumbbellW:45,
+     alt:'Incline Machine Press',altW:90,dumbbell:'Incline DB Press',dumbbellW:45,
      bwEx:'Decline push-ups',bwSets:'3×15',bwNote:'Feet on chair, body angled down'},
     {id:'arnld',name:'Arnold press',sets:3,reps:'10',muscle:'Full delts',w:35,db:true,
-     hotel:'Arnold Press',hotelW:30,dumbbell:'Arnold Press',dumbbellW:30,
+     alt:'Machine Shoulder Press',altW:70,dumbbell:'Arnold Press',dumbbellW:30,
      bwEx:'Pike push-ups',bwSets:'3×12',bwNote:'Hips high, press down toward floor'},
     {id:'uprow',name:'Upright row',sets:3,reps:'12',muscle:'Traps / delts',w:55,
-     hotel:'DB Upright Row',hotelW:25,dumbbell:'DB Upright Row',dumbbellW:25,
+     alt:'Cable Upright Row',altW:45,dumbbell:'DB Upright Row',dumbbellW:25,
      bwEx:'Prone T-raise',bwSets:'3×12',bwNote:'Lie face down, arms form T, lift'},
     {id:'skllc',name:'Skull crushers',sets:3,reps:'10',muscle:'Triceps',w:55,
-     hotel:'DB Skull Crusher',hotelW:25,dumbbell:'DB Skull Crusher',dumbbellW:25,
+     alt:'Cable Overhead Tricep Ext.',altW:40,dumbbell:'DB Skull Crusher',dumbbellW:25,
      bwEx:'Close-grip push-ups',bwSets:'3×12',bwNote:'Hands shoulder-width or narrower'},
     {id:'dips',name:'Dips',sets:3,reps:'AMRAP',muscle:'Triceps / chest',w:0,bwOnly:true,
-     hotel:'Assisted dip machine',dumbbell:'Bench Dips',dumbbellW:0,
+     alt:'Close-Grip Bench Press',altW:95,dumbbell:'Bench Dips',dumbbellW:0,
      bwEx:'Chair dips',bwSets:'3×max',bwNote:'Hands on chair, lower body to floor'},
   ]},
   4:{name:'Pull B',tag:'Back · Biceps',warmup:'pull',coreType:'pull_light',coreRot:1,exercises:[
     {id:'tbar',name:'T-bar row',sets:3,reps:'10',muscle:'Lats / mid-back',w:90,
-     hotel:'DB Row',hotelW:55,dumbbell:'DB Row',dumbbellW:55,
+     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'DB Row',dumbbellW:55,
      bwEx:'Prone back squeeze',bwSets:'3×15',bwNote:'Face down, squeeze blades together'},
     {id:'lapd',name:'Lat pulldown',sets:3,reps:'10–12',muscle:'Lats',w:80,
-     hotel:'Straight-arm pulldown',hotelW:40,dumbbell:'DB Pullover',dumbbellW:35,
+     alt:'Assisted Pull-up Machine',altW:50,dumbbell:'DB Pullover',dumbbellW:35,
      bwEx:'Doorframe lat stretch pulls',bwSets:'3×10',bwNote:'Grip door frame, squat and pull lats'},
     {id:'dbrow',name:'Dumbbell row',sets:3,reps:'10',muscle:'Lats',w:50,db:true,
-     hotel:'DB Row',hotelW:50,dumbbell:'DB Row',dumbbellW:50,
+     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'DB Row',dumbbellW:50,
      bwEx:'Table rows',bwSets:'3×12',bwNote:'Under table, pull chest up to edge'},
     {id:'facep',name:'Face pulls',sets:3,reps:'15',muscle:'Rear delts',w:30,
-     hotel:'DB Reverse Fly',hotelW:15,dumbbell:'DB Reverse Fly',dumbbellW:15,
+     alt:'Rear Delt Machine',altW:40,dumbbell:'DB Reverse Fly',dumbbellW:15,
      bwEx:'Prone W-raise',bwSets:'3×15',bwNote:'Face down, arms in W shape, lift and squeeze'},
     {id:'conccl',name:'Concentration curl',sets:3,reps:'12',muscle:'Biceps',w:30,db:true,
-     hotel:'Concentration Curl',hotelW:25,dumbbell:'Concentration Curl',dumbbellW:25,
+     alt:'Cable Curl',altW:40,dumbbell:'Concentration Curl',dumbbellW:25,
      bwEx:'Isometric curl',bwSets:'3×30s',bwNote:'Press up under table, hold contraction'},
     {id:'pcurl',name:'Preacher curl',sets:3,reps:'10',muscle:'Biceps',w:45,
-     hotel:'DB Curl',hotelW:35,dumbbell:'DB Curl',dumbbellW:35,
+     alt:'Cable Preacher Curl',altW:40,dumbbell:'DB Curl',dumbbellW:35,
      bwEx:'Towel curl',bwSets:'3×12',bwNote:'Stand on towel, grip ends, curl up'},
   ]},
   5:{name:'Legs B',tag:'Quads · Hamstrings · Glutes',warmup:'legs',coreType:'legs_heavy',coreRot:1,exercises:[
     {id:'bsqb',name:'Back squat',sets:3,reps:'8',muscle:'Quads / glutes',w:135,barbell:true,
-     hotel:'DB Goblet Squat',hotelW:50,dumbbell:'DB Goblet Squat',dumbbellW:50,
+     alt:'Leg Press',altW:180,dumbbell:'DB Goblet Squat',dumbbellW:50,
      bwEx:'Jump squat',bwSets:'3×12',bwNote:'Explosive up, soft landing'},
     {id:'bss',name:'Bulgarian split squat',sets:3,reps:'10 each',muscle:'Quads / glutes',w:0,bwOnly:true,
-     hotel:'DB Split Squat',hotelW:25,dumbbell:'DB Split Squat',dumbbellW:25,
+     alt:'Smith Machine Split Squat',altW:30,dumbbell:'DB Split Squat',dumbbellW:25,
      bwEx:'Bulgarian split squat',bwSets:'3×10 each',bwNote:'Back foot on chair'},
     {id:'legcr',name:'Leg curl',sets:3,reps:'12',muscle:'Hamstrings',w:60,
-     hotel:'DB Leg Curl',hotelW:25,dumbbell:'DB Leg Curl',dumbbellW:25,
+     alt:'Seated Leg Curl Machine',altW:50,dumbbell:'DB Leg Curl',dumbbellW:25,
      bwEx:'Nordic curl',bwSets:'3×6',bwNote:'Kneel, anchor feet under couch, lower slowly'},
     {id:'hipthr',name:'Hip thrust',sets:3,reps:'10',muscle:'Glutes',w:135,barbell:true,
-     hotel:'DB Hip Thrust',hotelW:50,dumbbell:'DB Hip Thrust',dumbbellW:50,
+     alt:'Glute Machine',altW:70,dumbbell:'DB Hip Thrust',dumbbellW:50,
      bwEx:'Single-leg glute bridge',bwSets:'3×15 each',bwNote:'One leg raised, drive hips up'},
     {id:'calfb',name:'Standing calf raise',sets:4,reps:'15',muscle:'Calves',w:100,
-     hotel:'DB Calf Raise',hotelW:40,dumbbell:'DB Calf Raise',dumbbellW:40,
+     alt:'Leg Press Calf Raise',altW:140,dumbbell:'DB Calf Raise',dumbbellW:40,
      bwEx:'Single-leg calf raise',bwSets:'4×15 each',bwNote:'One leg, use wall for balance'},
   ]},
   6:{name:'Rest',tag:'Light walk · Stretch · Foam roll',exercises:[]},
@@ -666,6 +707,11 @@ const CORE_ROTATIONS={
 // STATE
 let W={},H={},CH=[],MEAS=[],PROT=[],SLEEP=[],WATER={};
 let done={},coreDone={},warmupDone={},exEffort={},setResults={},nextWeekIncrease={};
+// SESSLOG: one entry per logged workout day ({date, dayIdx}), used only to check weekly
+// training compliance (see checkWeeklyCompliance) — independent of per-exercise H[] history.
+let SESSLOG=[];
+// RECOV: daily sauna / cold plunge log, one entry per date ({date, sauna, cold}).
+let RECOV=[];
 // Workout queue — decoupled from the actual calendar day so missing days doesn't create rigid "missed" pressure.
 // queueIdx tracks "next workout in the rotation" and only advances when a session is saved (or manually nudged).
 let queueIdx=parseInt(localStorage.getItem('dg_queueIdx'));
@@ -681,9 +727,11 @@ async function loadData(){
     const loc=JSON.parse(localStorage.getItem('dg_backup')||'{}');
     if(loc.W){W=loc.W||{};H=loc.H||{};CH=loc.CH||[];MEAS=loc.MEAS||[];PROT=loc.PROT||[];SLEEP=loc.SLEEP||[];WATER=loc.WATER||{};nextWeekIncrease=loc.nextWeekIncrease||{};}
     if(loc.queueIdx!==undefined){queueIdx=loc.queueIdx;selDay=queueIdx;}
+    SESSLOG=loc.SESSLOG||[];RECOV=loc.RECOV||[];
   }catch(e2){}
   seedDefaults();
   applyPendingIncreases();
+  checkWeeklyCompliance();
   renderAll();
   setSS('ok','local');
   checkMonthlyReport();
@@ -703,7 +751,9 @@ async function loadData(){
       SLEEP=d.SLEEP||[];WATER=d.WATER||{};
       nextWeekIncrease=d.nextWeekIncrease||{};
       if(d.queueIdx!==undefined){queueIdx=d.queueIdx;selDay=queueIdx;}
+      SESSLOG=d.SESSLOG||[];RECOV=d.RECOV||[];
       seedDefaults();applyPendingIncreases();
+      checkWeeklyCompliance();
       renderAll();setSS('ok','synced');
     }
   }catch(e){
@@ -716,6 +766,8 @@ function seedDefaults(){
     if(W[ex.id]===undefined)W[ex.id]=ex.w;
     const dbKey=ex.id+'_db';
     if(W[dbKey]===undefined&&ex.dumbbellW!==undefined)W[dbKey]=ex.dumbbellW;
+    const altKey=ex.id+'_alt';
+    if(W[altKey]===undefined&&ex.altW!==undefined)W[altKey]=ex.altW;
   }));
 }
 
@@ -731,7 +783,7 @@ function applyPendingIncreases(){
 
 async function persist(){
   setSS('saving','saving...');
-  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease,queueIdx};
+  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease,queueIdx,SESSLOG,RECOV};
   // Always save locally first — instant and never fails
   try{localStorage.setItem('dg_backup',JSON.stringify(payload));}catch(e){}
   // Then push to Supabase with timeout
@@ -752,13 +804,14 @@ function schedPersist(){clearTimeout(saveTimer);saveTimer=setTimeout(persist,150
 function setSS(t,l){const d=document.getElementById('sdot'),lb=document.getElementById('slbl');if(!d||!lb)return;d.className='sdot'+(t==='saving'?' saving':t==='err'?' err':'');lb.textContent=l;}
 function gw(id,mode){
   const m=mode||'full';
-  if(m==='dumbbells'||m==='hotel'){const dbKey=id+'_db';return W[dbKey]!==undefined?W[dbKey]:(W[id]!==undefined?W[id]:0);}
+  if(m==='dumbbells'){const dbKey=id+'_db';return W[dbKey]!==undefined?W[dbKey]:(W[id]!==undefined?W[id]:0);}
+  if(m==='alternate'){const altKey=id+'_alt';return W[altKey]!==undefined?W[altKey]:(W[id]!==undefined?W[id]:0);}
   return W[id]!==undefined?W[id]:0;
 }
 function getExEquip(ex){
   const mode=perExEquip[ex.id]||equipMode;
   if(mode==='bodyweight')return{name:ex.bwEx||ex.name,w:0,isBW:true,sets:ex.bwSets||'',note:ex.bwNote||'',mode};
-  if(mode==='hotel'){const saved=gw(ex.id,'hotel');const w=saved>0?saved:(ex.hotelW!==undefined?ex.hotelW:gw(ex.id,'full'));return{name:ex.hotel||ex.name,w,isBW:ex.hotelW===0,mode};}
+  if(mode==='alternate'){const saved=gw(ex.id,'alternate');const w=saved>0?saved:(ex.altW!==undefined?ex.altW:gw(ex.id,'full'));return{name:ex.alt||ex.name,w,isBW:ex.altW===0,mode};}
   if(mode==='dumbbells'){const saved=gw(ex.id,'dumbbells');const w=saved>0?saved:(ex.dumbbellW!==undefined?ex.dumbbellW:gw(ex.id,'full'));return{name:ex.dumbbell||ex.name,w,isBW:ex.dumbbellW===0,mode};}
   return{name:ex.name,w:gw(ex.id,'full'),isBW:false,mode};
 }
@@ -780,7 +833,7 @@ function setPerExEquip(exId,mode){perExEquip[exId]=mode;renderWorkout();}
 
 // Plate math for true 45lb-Olympic-bar lifts (bench, incline bench, squat, deadlift, RDL,
 // barbell row, barbell curl, hip thrust) — flagged via ex.barbell in PLAN. Only shown in
-// 'full' gym mode since a hotel/DB/bodyweight swap isn't loaded with plates.
+// 'full' gym mode since an alternate/DB/bodyweight swap isn't loaded with plates.
 function plateMathStr(total){
   total=parseFloat(total)||0;
   const bar=45;
@@ -913,7 +966,7 @@ function renderWorkout(){
     : selDay;
   const day = PLAN[effectiveDayIdx] || PLAN[selDay];
   if(!day||!day.exercises.length){
-    area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div></div>';
+    area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div></div>'+recoveryCardHtml();
     return;
   }
 
@@ -1083,7 +1136,7 @@ function renderWorkout(){
     // Per-exercise equipment swap
     html+=`<div class="per-ex-equip"><span class="per-ex-label">Swap:</span>
       <button class="peq-btn${curMode==='full'?' sel':''}" onclick="setPerExEquip('${ex.id}','full')">Full gym</button>
-      <button class="peq-btn${curMode==='hotel'?' sel':''}" onclick="setPerExEquip('${ex.id}','hotel')">Hotel</button>
+      <button class="peq-btn${curMode==='alternate'?' sel':''}" onclick="setPerExEquip('${ex.id}','alternate')">Alternate</button>
       <button class="peq-btn${curMode==='dumbbells'?' sel':''}" onclick="setPerExEquip('${ex.id}','dumbbells')">DBs</button>
       <button class="peq-btn${curMode==='bodyweight'?' bws sel':''}" onclick="setPerExEquip('${ex.id}','bodyweight')">BW</button>
     </div></div>`;
@@ -1109,7 +1162,36 @@ function renderWorkout(){
   html+=`<div class="ex-card"><div class="ex-name" style="margin-bottom:8px">Session notes</div><div class="notes-row"><textarea id="sess-notes" placeholder="Tight shoulder, felt strong, lower back ok today...">${window._sessNotes&&window._sessNotes[selDay]||''}</textarea></div></div>`;
   html+=`<div class="save-row"><button class="save-btn" onclick="saveSession()">Save session</button></div>`;
   html+=`<button class="skip-workout-btn" onclick="promptSkip()">😔 I didn't train today — push to tomorrow</button>`;
+  html+=recoveryCardHtml();
   area.innerHTML=html;
+}
+
+// Sauna / cold plunge — simple daily habit checkboxes, tracked in RECOV so how-often
+// stats can show up in the Progress tab.
+function recoveryCardHtml(){
+  const today=new Date().toISOString().split('T')[0];
+  const entry=RECOV.find(r=>r.date===today)||{sauna:false,cold:false};
+  return `<div class="daily-check-card" style="margin-top:10px">
+    <div class="dc-title">🧖 Recovery</div>
+    <div style="display:flex;gap:10px">
+      <label style="display:flex;align-items:center;gap:8px;flex:1;padding:9px 10px;background:var(--sf2);border-radius:var(--rads);cursor:pointer">
+        <input type="checkbox" class="warmup-check" ${entry.sauna?'checked':''} onchange="toggleRecovery('sauna',this.checked)">
+        <span style="font-size:12px;font-weight:500;color:var(--tx)">🧖 Sauna</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;flex:1;padding:9px 10px;background:var(--sf2);border-radius:var(--rads);cursor:pointer">
+        <input type="checkbox" class="warmup-check" ${entry.cold?'checked':''} onchange="toggleRecovery('cold',this.checked)">
+        <span style="font-size:12px;font-weight:500;color:var(--tx)">🥶 Cold plunge</span>
+      </label>
+    </div>
+  </div>`;
+}
+function toggleRecovery(kind,val){
+  const today=new Date().toISOString().split('T')[0];
+  let entry=RECOV.find(r=>r.date===today);
+  if(!entry){entry={date:today,sauna:false,cold:false};RECOV.push(entry);}
+  entry[kind]=val;
+  if(RECOV.length>200)RECOV=RECOV.slice(-200);
+  schedPersist();
 }
 
 function setResult(k,val,btn,exId,day,setNum){
@@ -1178,7 +1260,8 @@ function updateWarmupBtn(){
 
 function uw(id,val,mode){
   const m=mode||perExEquip[id]||equipMode;
-  if(m==='dumbbells'||m==='hotel'){W[id+'_db']=parseFloat(val)||0;}
+  if(m==='dumbbells'){W[id+'_db']=parseFloat(val)||0;}
+  else if(m==='alternate'){W[id+'_alt']=parseFloat(val)||0;}
   else{W[id]=parseFloat(val)||0;}
   schedPersist();
 }
@@ -1222,6 +1305,8 @@ function saveSession(){
   // catching up on several missed days "just work": the app always points at the right next
   // workout regardless of which real weekday it is.
   if(day.exercises.length){
+    SESSLOG.push({date,dayIdx:selDay});
+    if(SESSLOG.length>200)SESSLOG=SESSLOG.slice(-200);
     queueIdx=(selDay+1)%7;
     persistQueueIdx();
     selDay=queueIdx;
@@ -1326,7 +1411,8 @@ function renderProgress(){
   let improving=0;allEx.forEach(ex=>{const h=H[ex.id]||[];if(h.length>=2&&h[h.length-1].weight>h[0].weight)improving++;});
   const miles=CH.reduce((a,c)=>a+(c.dist||0),0);const ps=calcProteinStreak();
   const now2=new Date();const monthStart2=new Date(now2.getFullYear(),now2.getMonth(),1).toISOString().split('T')[0];const monthMiles2=CH.filter(c=>c.date>=monthStart2).reduce((a,c)=>a+(c.dist||0),0);const monthSess=new Set();Object.values(H).forEach(h=>h.forEach(s=>{if(s.date>=monthStart2)monthSess.add(s.date);}));
-  document.getElementById('stat-grid').innerHTML=`<div class="sc"><div class="sl">Sessions total</div><div class="sv">${sessions}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">This month</div><div class="sv">${monthSess.size}</div><div class="ss">sessions</div></div><div class="sc"><div class="sl">Miles this month</div><div class="sv">${monthMiles2.toFixed(1)}</div><div class="ss">running total</div></div><div class="sc"><div class="sl">Miles all time</div><div class="sv">${miles.toFixed(1)}</div><div class="ss">total</div></div><div class="sc"><div class="sl">Lifts improving</div><div class="sv">${improving}</div><div class="ss">of ${allEx.length} exercises</div></div><div class="sc"><div class="sl">Protein streak</div><div class="sv">${ps}</div><div class="ss">days in a row</div></div>`;
+  const saunaCount=RECOV.filter(r=>r.sauna).length;const coldCount=RECOV.filter(r=>r.cold).length;
+  document.getElementById('stat-grid').innerHTML=`<div class="sc"><div class="sl">Sessions total</div><div class="sv">${sessions}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">This month</div><div class="sv">${monthSess.size}</div><div class="ss">sessions</div></div><div class="sc"><div class="sl">Miles this month</div><div class="sv">${monthMiles2.toFixed(1)}</div><div class="ss">running total</div></div><div class="sc"><div class="sl">Miles all time</div><div class="sv">${miles.toFixed(1)}</div><div class="ss">total</div></div><div class="sc"><div class="sl">Lifts improving</div><div class="sv">${improving}</div><div class="ss">of ${allEx.length} exercises</div></div><div class="sc"><div class="sl">Protein streak</div><div class="sv">${ps}</div><div class="ss">days in a row</div></div><div class="sc"><div class="sl">🧖 Sauna</div><div class="sv">${saunaCount}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">🥶 Cold plunge</div><div class="sv">${coldCount}</div><div class="ss">all time</div></div>`;
   renderSleepChart();renderHeatmap();renderStreaks();
   document.getElementById('prog-body').innerHTML=allEx.map(ex=>{const h=H[ex.id]||[];const last=h.length?h[h.length-1].weight:gw(ex.id);const best=h.length?Math.max(...h.map(x=>x.weight)):gw(ex.id);const first=h.length>=2?h[0].weight:null;const trend=first===null?'same':(last>first?'up':last<first?'down':'same');const icon=trend==='up'?'↑':trend==='down'?'↓':'—';const cls=trend==='up'?'tup':trend==='down'?'tdn':'tsa';const bars=h.slice(-6);const mx=bars.length?Math.max(...bars.map(x=>x.weight)):1;const bc=bars.map(x=>`<div class="mbar" style="height:${Math.round((x.weight/mx)*20)}px;width:${Math.max(4,Math.floor(38/bars.length)-2)}px"></div>`).join('');return`<tr><td title="${ex.name}">${ex.name}</td><td>${last}</td><td>${best}</td><td class="${cls}">${icon}</td><td><div class="mini">${bc||'<span style="font-size:10px;color:var(--tx3)">—</span>'}</div></td></tr>`;}).join('');
   document.getElementById('cardio-body').innerHTML=CH.slice(-8).reverse().map(r=>`<tr><td>${r.date}</td><td>${r.type}</td><td>${r.dist}</td><td>${r.dur}</td><td style="color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.notes||'—'}</td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--tx3);font-size:11px;padding:8px 5px">No cardio yet</td></tr>';
@@ -1415,6 +1501,7 @@ function resetProgramToWeek(weekNum){
   programStartDate=newStart;
   try{localStorage.setItem('dg_start',newStart.toISOString().split('T')[0]);}catch(e){}
   try{localStorage.removeItem('dg_last_phase');}catch(e){}
+  try{localStorage.removeItem('dg_compliance_through');}catch(e){}
   updateWeekLabel();
   renderWorkout();
   renderPlan();
