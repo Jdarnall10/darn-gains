@@ -508,7 +508,7 @@ function checkPhaseTransition(){
 // build week. This only shifts phase/rep/weight suggestions; it never touches logged
 // history, SESSLOG, or the workout queue.
 function getExpectedTrainingDays(){
-  return Object.values(PLAN).filter(d=>d.exercises&&d.exercises.length>0).length;
+  return Object.values(PLAN).filter(d=>(d.exercises&&d.exercises.length>0)||d.hotworx).length;
 }
 function countSessionsInRange(startStr,endStr){
   const dates=new Set(SESSLOG.filter(s=>s.date>=startStr&&s.date<endStr).map(s=>s.date));
@@ -544,147 +544,144 @@ function checkWeeklyCompliance(){
 }
 
 
-// WARMUPS tailored per day type
+// WARMUPS tailored per day type — 'upper' combines push+pull prep, 'lower' covers squat/hinge prep
 const WARMUPS={
-  push:[
+  upper:[
     {name:'Arm circles',detail:'20 forward, 20 backward',why:'Shoulder joint prep'},
-    {name:'Band pull-aparts (or door frame)',detail:'3×15',why:'Rotator cuff activation'},
+    {name:'Band pull-aparts (or door frame)',detail:'3×15',why:'Rotator cuff + rear delt activation'},
     {name:'Cat-cow stretch',detail:'10 slow reps',why:'Thoracic mobility — protects back'},
-    {name:'Wall slides',detail:'10 reps',why:'Scapular control'},
-    {name:'Light bench / push-up',detail:'1 set × 15 reps at 40% weight',why:'CNS activation'},
+    {name:'Scap push-ups / wall slides',detail:'10 reps each',why:'Scapular control for pressing and pulling'},
+    {name:'Light press + row warm-up set',detail:'1 set × 15 reps at 40% weight',why:'CNS activation for both patterns'},
   ],
-  pull:[
-    {name:'Cat-cow stretch',detail:'10 slow reps',why:'Critical — lower back prep'},
-    {name:'Bird dog',detail:'10 each side, slow',why:'Core + back stability'},
-    {name:'Dead hang',detail:'2×20–30s from any bar',why:'Lat activation + shoulder health'},
-    {name:'Hip hinge practice',detail:'10 reps bodyweight',why:'Deadlift pattern prep'},
-    {name:'Thoracic rotation',detail:'10 each side seated',why:'Spine mobility for rowing'},
-  ],
-  legs:[
+  lower:[
     {name:'Hip circles',detail:'15 each direction each leg',why:'Hip joint mobility'},
-    {name:'Glute bridges',detail:'2×15 bodyweight',why:'Glute activation before squats'},
+    {name:'Glute bridges',detail:'2×15 bodyweight',why:'Glute activation before squats/hinges'},
     {name:'Ankle circles + calf stretch',detail:'30s each ankle',why:'Ankle mobility for squat depth'},
     {name:'Bodyweight squat',detail:'2×10 slow, full depth',why:'Movement pattern warm-up'},
     {name:'Walking lunge',detail:'10 each leg',why:'Hip flexor stretch + balance'},
   ],
 };
 
-// TRUE BODYWEIGHT exercises — zero equipment, floor only
+// 4 lifting days + 2 Hotworx days + 1 rest day per week.
+// Upper A/B combine push+pull so each muscle group still gets 2x/week frequency in fewer sessions.
+// Lower A = squat-dominant, Lower B = hinge/unilateral-dominant.
 const PLAN={
-  0:{name:'Push A',tag:'Chest · Shoulders · Triceps',warmup:'push',coreType:'push_light',coreRot:0,exercises:[
+  0:{name:'Upper A',tag:'Chest · Back · Shoulders · Arms',warmup:'upper',coreType:'push_light',coreRot:0,exercises:[
     {id:'bbp',name:'Bench press',sets:4,reps:'8–10',muscle:'Chest',w:135,barbell:true,
      alt:'Machine Chest Press',altW:100,dumbbell:'DB Bench Press',dumbbellW:65,
      bwEx:'Push-ups',bwSets:'4×15',bwNote:'Wide grip targets chest'},
-    {id:'incbar',name:'Incline barbell press',sets:3,reps:'8–10',muscle:'Upper chest',w:115,barbell:true,
-     alt:'Incline Machine Press',altW:90,dumbbell:'Incline DB Press',dumbbellW:50,
-     bwEx:'Decline push-ups',bwSets:'3×15',bwNote:'Feet elevated on chair'},
+    {id:'bbrow',name:'Bent over barbell row',sets:3,reps:'8–10',muscle:'Lats / rhomboids',w:115,barbell:true,
+     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'DB Row',dumbbellW:50,
+     bwEx:'Prone back squeeze',bwSets:'3×15',bwNote:'Lie face down, squeeze shoulder blades'},
     {id:'dbohp',name:'DB shoulder press',sets:3,reps:'8–10',muscle:'Shoulders',w:40,db:true,
      alt:'Machine Shoulder Press',altW:70,dumbbell:'DB Shoulder Press',dumbbellW:40,
      bwEx:'Pike push-ups',bwSets:'3×12',bwNote:'Hips high, vertical press'},
     {id:'latr',name:'Lateral raises',sets:3,reps:'12–15',muscle:'Lateral delts',w:22.5,db:true,
      alt:'Cable Lateral Raise',altW:12.5,dumbbell:'DB Lateral Raise',dumbbellW:15,
      bwEx:'Prone Y-raise',bwSets:'3×15',bwNote:'Lie face down, arms form Y'},
-    {id:'tricpd',name:'Cable tricep pushdown',sets:3,reps:'10–12',muscle:'Triceps',w:50,
-     alt:'EZ-Bar Skullcrusher',altW:40,dumbbell:'DB Overhead Ext.',dumbbellW:30,
-     bwEx:'Diamond push-ups',bwSets:'3×12',bwNote:'Hands close together'},
-    {id:'ohtri',name:'Overhead tricep ext.',sets:3,reps:'10',muscle:'Triceps',w:40,
-     alt:'Cable Overhead Extension',altW:40,dumbbell:'DB Kickback',dumbbellW:20,
-     bwEx:'Tricep dips on chair',bwSets:'3×max',bwNote:'Hands on chair behind you'},
-  ]},
-  1:{name:'Pull A',tag:'Back · Biceps',warmup:'pull',coreType:'pull_light',coreRot:0,exercises:[
-    {id:'dl',name:'Deadlift',sets:4,reps:'6–8',muscle:'Posterior chain',w:185,barbell:true,
-     alt:'Trap Bar Deadlift',altW:185,dumbbell:'DB RDL',dumbbellW:50,
-     bwEx:'Superman holds',bwSets:'4×30s',bwNote:'Lie face down, lift arms + legs'},
-    {id:'pup',name:'Pull-ups',sets:3,reps:'AMRAP',muscle:'Lats',w:0,bwOnly:true,
-     alt:'Lat Pulldown',altW:100,dumbbell:'DB Pullover',dumbbellW:30,
-     bwEx:'Table rows',bwSets:'3×12',bwNote:'Lie under table, pull chest to edge'},
-    {id:'bbrow',name:'Bent over barbell row',sets:3,reps:'8–10',muscle:'Lats / rhomboids',w:115,barbell:true,
-     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'DB Row',dumbbellW:50,
-     bwEx:'Prone back squeeze',bwSets:'3×15',bwNote:'Lie face down, squeeze shoulder blades'},
-    {id:'cabrow',name:'Seated cable row',sets:3,reps:'10',muscle:'Mid-back',w:80,
-     alt:'Machine Row',altW:90,dumbbell:'DB Row',dumbbellW:45,
-     bwEx:'Towel row (door)',bwSets:'3×12',bwNote:'Loop towel around door handle, lean back and row'},
     {id:'bbcurl',name:'Barbell / EZ curl',sets:3,reps:'10–12',muscle:'Biceps',w:55,barbell:true,
      alt:'Cable Bar Curl',altW:50,dumbbell:'DB Curl',dumbbellW:35,
      bwEx:'Towel bicep curl',bwSets:'3×12',bwNote:'Stand on towel ends, curl up'},
-    {id:'hamcrl',name:'Hammer curl',sets:3,reps:'10',muscle:'Biceps',w:35,db:true,
-     alt:'Cable Rope Hammer Curl',altW:25,dumbbell:'Hammer Curl',dumbbellW:30,
-     bwEx:'Isometric curl hold',bwSets:'3×30s',bwNote:'Press palm up under table edge'},
-  ]},
-  2:{name:'Legs A',tag:'Quads · Hamstrings · Glutes · Calves',warmup:'legs',coreType:'legs_heavy',coreRot:0,exercises:[
-    {id:'bsq',name:'Back squat',sets:4,reps:'8–10',muscle:'Quads / glutes',w:135,barbell:true,
-     alt:'Leg Press',altW:180,dumbbell:'DB Goblet Squat',dumbbellW:50,
-     bwEx:'Bodyweight squat',bwSets:'4×20',bwNote:'Slow 3s down, full depth'},
-    {id:'rdl',name:'Romanian deadlift',sets:3,reps:'10',muscle:'Hamstrings',w:115,barbell:true,
-     alt:'Cable Pull-Through',altW:70,dumbbell:'DB RDL',dumbbellW:50,
-     bwEx:'Single-leg RDL',bwSets:'3×10 each',bwNote:'Balance on one leg, hinge forward'},
-    {id:'lunge',name:'Walking lunges',sets:3,reps:'12 each',muscle:'Quads / glutes',w:0,bwOnly:true,
-     alt:'Smith Machine Lunge',altW:40,dumbbell:'DB Lunge',dumbbellW:30,
-     bwEx:'Walking lunges',bwSets:'3×12 each',bwNote:'Long stride, knee almost to floor'},
-    {id:'lgpr',name:'Leg press',sets:3,reps:'10',muscle:'Quads',w:180,
-     alt:'Hack Squat Machine',altW:160,dumbbell:'DB Step-up',dumbbellW:30,
-     bwEx:'Bulgarian split squat',bwSets:'3×10 each',bwNote:'Back foot on chair, front leg works'},
-    {id:'calf',name:'Calf raise',sets:4,reps:'15–20',muscle:'Calves',w:100,
-     alt:'Leg Press Calf Raise',altW:140,dumbbell:'DB Calf Raise',dumbbellW:40,
-     bwEx:'Single-leg calf raise',bwSets:'4×15 each',bwNote:'Use wall for balance'},
-  ]},
-  3:{name:'Push B',tag:'Chest · Shoulders · Triceps (variation)',warmup:'push',coreType:'push_light',coreRot:1,exercises:[
-    {id:'dbflt',name:'DB flat bench press',sets:3,reps:'10',muscle:'Chest',w:65,db:true,
-     alt:'Machine Chest Press',altW:100,dumbbell:'DB Bench Press',dumbbellW:60,
-     bwEx:'Push-up variations',bwSets:'3×15',bwNote:'Wide / normal / close in sequence'},
-    {id:'incdb',name:'Incline DB press',sets:3,reps:'10–12',muscle:'Upper chest',w:50,db:true,
-     alt:'Incline Machine Press',altW:90,dumbbell:'Incline DB Press',dumbbellW:45,
-     bwEx:'Decline push-ups',bwSets:'3×15',bwNote:'Feet on chair, body angled down'},
-    {id:'arnld',name:'Arnold press',sets:3,reps:'10',muscle:'Full delts',w:35,db:true,
-     alt:'Machine Shoulder Press',altW:70,dumbbell:'Arnold Press',dumbbellW:30,
-     bwEx:'Pike push-ups',bwSets:'3×12',bwNote:'Hips high, press down toward floor'},
-    {id:'uprow',name:'Upright row',sets:3,reps:'12',muscle:'Traps / delts',w:55,
-     alt:'Cable Upright Row',altW:45,dumbbell:'DB Upright Row',dumbbellW:25,
-     bwEx:'Prone T-raise',bwSets:'3×12',bwNote:'Lie face down, arms form T, lift'},
-    {id:'skllc',name:'Skull crushers',sets:3,reps:'10',muscle:'Triceps',w:55,
-     alt:'Cable Overhead Tricep Ext.',altW:40,dumbbell:'DB Skull Crusher',dumbbellW:25,
-     bwEx:'Close-grip push-ups',bwSets:'3×12',bwNote:'Hands shoulder-width or narrower'},
+    {id:'tricpd',name:'Cable tricep pushdown',sets:3,reps:'10–12',muscle:'Triceps',w:50,
+     alt:'EZ-Bar Skullcrusher',altW:40,dumbbell:'DB Overhead Ext.',dumbbellW:30,
+     bwEx:'Diamond push-ups',bwSets:'3×12',bwNote:'Hands close together'},
+  ],optional:[
     {id:'dips',name:'Dips',sets:3,reps:'AMRAP',muscle:'Triceps / chest',w:0,bwOnly:true,
      alt:'Close-Grip Bench Press',altW:95,dumbbell:'Bench Dips',dumbbellW:0,
      bwEx:'Chair dips',bwSets:'3×max',bwNote:'Hands on chair, lower body to floor'},
-  ]},
-  4:{name:'Pull B',tag:'Back · Biceps',warmup:'pull',coreType:'pull_light',coreRot:1,exercises:[
-    {id:'tbar',name:'T-bar row',sets:3,reps:'10',muscle:'Lats / mid-back',w:90,
-     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'DB Row',dumbbellW:55,
-     bwEx:'Prone back squeeze',bwSets:'3×15',bwNote:'Face down, squeeze blades together'},
-    {id:'lapd',name:'Lat pulldown',sets:3,reps:'10–12',muscle:'Lats',w:80,
-     alt:'Assisted Pull-up Machine',altW:50,dumbbell:'DB Pullover',dumbbellW:35,
-     bwEx:'Doorframe lat stretch pulls',bwSets:'3×10',bwNote:'Grip door frame, squat and pull lats'},
     {id:'dbrow',name:'Dumbbell row',sets:3,reps:'10',muscle:'Lats',w:50,db:true,
-     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'DB Row',dumbbellW:50,
+     alt:'Low Cable Row',altW:50,dumbbell:'Single-Arm DB Row',dumbbellW:50,
      bwEx:'Table rows',bwSets:'3×12',bwNote:'Under table, pull chest up to edge'},
-    {id:'facep',name:'Face pulls',sets:3,reps:'15',muscle:'Rear delts',w:30,
-     alt:'Rear Delt Machine',altW:40,dumbbell:'DB Reverse Fly',dumbbellW:15,
-     bwEx:'Prone W-raise',bwSets:'3×15',bwNote:'Face down, arms in W shape, lift and squeeze'},
+    {id:'uprow',name:'Upright row',sets:3,reps:'12',muscle:'Traps / delts',w:55,
+     alt:'Cable Upright Row',altW:45,dumbbell:'DB Upright Row',dumbbellW:25,
+     bwEx:'Prone T-raise',bwSets:'3×12',bwNote:'Lie face down, arms form T, lift'},
     {id:'conccl',name:'Concentration curl',sets:3,reps:'12',muscle:'Biceps',w:30,db:true,
      alt:'Cable Curl',altW:40,dumbbell:'Concentration Curl',dumbbellW:25,
      bwEx:'Isometric curl',bwSets:'3×30s',bwNote:'Press up under table, hold contraction'},
+  ]},
+  1:{name:'Lower A',tag:'Quads · Glutes · Calves',warmup:'lower',coreType:'legs_heavy',coreRot:0,exercises:[
+    {id:'bsq',name:'Back squat',sets:4,reps:'8–10',muscle:'Quads / glutes',w:135,barbell:true,
+     alt:'Smith Machine Squat',altW:130,dumbbell:'DB Goblet Squat',dumbbellW:50,
+     bwEx:'Bodyweight squat',bwSets:'4×20',bwNote:'Slow 3s down, full depth'},
+    {id:'lgpr',name:'Leg press',sets:3,reps:'10',muscle:'Quads',w:180,
+     alt:'Hack Squat Machine',altW:160,dumbbell:'DB Step-up',dumbbellW:30,
+     bwEx:'Bulgarian split squat',bwSets:'3×10 each',bwNote:'Back foot on chair, front leg works'},
+    {id:'rdl',name:'Romanian deadlift',sets:3,reps:'10',muscle:'Hamstrings',w:115,barbell:true,
+     alt:'Cable Pull-Through',altW:70,dumbbell:'DB RDL',dumbbellW:50,
+     bwEx:'Single-leg RDL',bwSets:'3×10 each',bwNote:'Balance on one leg, hinge forward'},
+    {id:'hipthr',name:'Hip thrust',sets:3,reps:'10',muscle:'Glutes',w:135,barbell:true,
+     alt:'Glute Machine',altW:70,dumbbell:'DB Hip Thrust',dumbbellW:50,
+     bwEx:'Single-leg glute bridge',bwSets:'3×15 each',bwNote:'One leg raised, drive hips up'},
+    {id:'calf',name:'Calf raise',sets:4,reps:'15–20',muscle:'Calves',w:100,
+     alt:'Standing Calf Machine',altW:90,dumbbell:'DB Calf Raise',dumbbellW:40,
+     bwEx:'Single-leg calf raise',bwSets:'4×15 each',bwNote:'Use wall for balance'},
+  ],optional:[
+    {id:'glutekick',name:'Cable glute kickback',sets:3,reps:'12 each',muscle:'Glutes',w:20,
+     alt:'Glute Kickback Machine',altW:40,dumbbell:'Ankle Weight Kickback',dumbbellW:5,
+     bwEx:'Donkey kicks',bwSets:'3×15 each',bwNote:'On all fours, kick heel toward ceiling'},
+    {id:'seatcalf',name:'Seated calf raise',sets:3,reps:'15–20',muscle:'Calves (soleus)',w:90,
+     alt:'Leg Press Calf Raise (close stance)',altW:120,dumbbell:'DB Seated Calf Raise',dumbbellW:40,
+     bwEx:'Seated calf raise (plate on knee)',bwSets:'3×20',bwNote:'Sit on chair, raise heels, add weight on knees if available'},
+  ]},
+  2:{name:'Hotworx',tag:'Cycle · Yoga · Stretch',warmup:null,coreType:null,hotworx:true,exercises:[]},
+  3:{name:'Upper B',tag:'Chest · Back · Shoulders · Arms (variation)',warmup:'upper',coreType:'pull_light',coreRot:1,exercises:[
+    {id:'incbar',name:'Incline barbell press',sets:3,reps:'8–10',muscle:'Upper chest',w:115,barbell:true,
+     alt:'Incline Machine Press',altW:90,dumbbell:'Incline DB Press',dumbbellW:50,
+     bwEx:'Decline push-ups',bwSets:'3×15',bwNote:'Feet elevated on chair'},
+    {id:'lapd',name:'Lat pulldown',sets:3,reps:'10–12',muscle:'Lats',w:80,
+     alt:'Assisted Pull-up Machine',altW:50,dumbbell:'DB Pullover',dumbbellW:35,
+     bwEx:'Doorframe lat stretch pulls',bwSets:'3×10',bwNote:'Grip door frame, squat and pull lats'},
+    {id:'arnld',name:'Arnold press',sets:3,reps:'10',muscle:'Full delts',w:35,db:true,
+     alt:'Machine Shoulder Press',altW:70,dumbbell:'Arnold Press',dumbbellW:30,
+     bwEx:'Pike push-ups',bwSets:'3×12',bwNote:'Hips high, press down toward floor'},
+    {id:'facep',name:'Face pulls',sets:3,reps:'15',muscle:'Rear delts',w:30,
+     alt:'Rear Delt Machine',altW:40,dumbbell:'DB Reverse Fly',dumbbellW:15,
+     bwEx:'Prone W-raise',bwSets:'3×15',bwNote:'Face down, arms in W shape, lift and squeeze'},
+    {id:'hamcrl',name:'Hammer curl',sets:3,reps:'10',muscle:'Biceps',w:35,db:true,
+     alt:'Cable Rope Hammer Curl',altW:25,dumbbell:'Hammer Curl',dumbbellW:30,
+     bwEx:'Isometric curl hold',bwSets:'3×30s',bwNote:'Press palm up under table edge'},
+    {id:'skllc',name:'Skull crushers',sets:3,reps:'10',muscle:'Triceps',w:55,
+     alt:'Cable Overhead Tricep Ext.',altW:40,dumbbell:'DB Skull Crusher',dumbbellW:25,
+     bwEx:'Close-grip push-ups',bwSets:'3×12',bwNote:'Hands shoulder-width or narrower'},
+  ],optional:[
+    {id:'pup',name:'Pull-ups',sets:3,reps:'AMRAP',muscle:'Lats',w:0,bwOnly:true,
+     alt:'Straight-Arm Pulldown',altW:50,dumbbell:'DB Single-Arm Pullover',dumbbellW:30,
+     bwEx:'Table rows',bwSets:'3×12',bwNote:'Lie under table, pull chest to edge'},
+    {id:'tbar',name:'T-bar row',sets:3,reps:'10',muscle:'Lats / mid-back',w:90,
+     alt:'Chest-Supported Row Machine',altW:90,dumbbell:'Single-Arm DB Row',dumbbellW:55,
+     bwEx:'Prone back squeeze',bwSets:'3×15',bwNote:'Face down, squeeze blades together'},
+    {id:'cabrow',name:'Seated cable row',sets:3,reps:'10',muscle:'Mid-back',w:80,
+     alt:'Machine Row',altW:90,dumbbell:'DB Row',dumbbellW:45,
+     bwEx:'Towel row (door)',bwSets:'3×12',bwNote:'Loop towel around door handle, lean back and row'},
     {id:'pcurl',name:'Preacher curl',sets:3,reps:'10',muscle:'Biceps',w:45,
      alt:'Cable Preacher Curl',altW:40,dumbbell:'DB Curl',dumbbellW:35,
      bwEx:'Towel curl',bwSets:'3×12',bwNote:'Stand on towel, grip ends, curl up'},
   ]},
-  5:{name:'Legs B',tag:'Quads · Hamstrings · Glutes',warmup:'legs',coreType:'legs_heavy',coreRot:1,exercises:[
-    {id:'bsqb',name:'Back squat',sets:3,reps:'8',muscle:'Quads / glutes',w:135,barbell:true,
-     alt:'Leg Press',altW:180,dumbbell:'DB Goblet Squat',dumbbellW:50,
-     bwEx:'Jump squat',bwSets:'3×12',bwNote:'Explosive up, soft landing'},
+  4:{name:'Lower B',tag:'Hamstrings · Glutes · Quads (unilateral)',warmup:'lower',coreType:'legs_heavy',coreRot:1,exercises:[
+    {id:'dl',name:'Deadlift',sets:4,reps:'6–8',muscle:'Posterior chain',w:185,barbell:true,
+     alt:'Trap Bar Deadlift',altW:185,dumbbell:'DB RDL',dumbbellW:50,
+     bwEx:'Superman holds',bwSets:'4×30s',bwNote:'Lie face down, lift arms + legs'},
+    {id:'lunge',name:'Walking lunges',sets:3,reps:'12 each',muscle:'Quads / glutes',w:0,bwOnly:true,
+     alt:'Smith Machine Lunge',altW:40,dumbbell:'DB Lunge',dumbbellW:30,
+     bwEx:'Walking lunges',bwSets:'3×12 each',bwNote:'Long stride, knee almost to floor'},
     {id:'bss',name:'Bulgarian split squat',sets:3,reps:'10 each',muscle:'Quads / glutes',w:0,bwOnly:true,
      alt:'Smith Machine Split Squat',altW:30,dumbbell:'DB Split Squat',dumbbellW:25,
      bwEx:'Bulgarian split squat',bwSets:'3×10 each',bwNote:'Back foot on chair'},
     {id:'legcr',name:'Leg curl',sets:3,reps:'12',muscle:'Hamstrings',w:60,
      alt:'Seated Leg Curl Machine',altW:50,dumbbell:'DB Leg Curl',dumbbellW:25,
      bwEx:'Nordic curl',bwSets:'3×6',bwNote:'Kneel, anchor feet under couch, lower slowly'},
-    {id:'hipthr',name:'Hip thrust',sets:3,reps:'10',muscle:'Glutes',w:135,barbell:true,
-     alt:'Glute Machine',altW:70,dumbbell:'DB Hip Thrust',dumbbellW:50,
-     bwEx:'Single-leg glute bridge',bwSets:'3×15 each',bwNote:'One leg raised, drive hips up'},
     {id:'calfb',name:'Standing calf raise',sets:4,reps:'15',muscle:'Calves',w:100,
      alt:'Leg Press Calf Raise',altW:140,dumbbell:'DB Calf Raise',dumbbellW:40,
      bwEx:'Single-leg calf raise',bwSets:'4×15 each',bwNote:'One leg, use wall for balance'},
+  ],optional:[
+    {id:'revlunge',name:'Reverse lunge',sets:3,reps:'10 each',muscle:'Quads / glutes',w:0,bwOnly:true,
+     alt:'Smith Machine Reverse Lunge',altW:40,dumbbell:'DB Reverse Lunge',dumbbellW:25,
+     bwEx:'Reverse lunge',bwSets:'3×10 each',bwNote:'Step back, knee to floor, drive through front heel'},
+    {id:'gmorning',name:'Good morning',sets:3,reps:'10',muscle:'Hamstrings / lower back',w:65,barbell:true,
+     alt:'Cable Good Morning',altW:40,dumbbell:'DB Good Morning',dumbbellW:30,
+     bwEx:'Hip hinge hold',bwSets:'3×20s',bwNote:'Hands behind head, hinge at hips, keep back flat — stop if any lower back discomfort'},
   ]},
+  5:{name:'Hotworx',tag:'Cycle · Yoga · Stretch',warmup:null,coreType:null,hotworx:true,exercises:[]},
   6:{name:'Rest',tag:'Light walk · Stretch · Foam roll',exercises:[]},
 };
 
@@ -707,11 +704,16 @@ const CORE_ROTATIONS={
 // STATE
 let W={},H={},CH=[],MEAS=[],PROT=[],SLEEP=[],WATER={};
 let done={},coreDone={},warmupDone={},exEffort={},setResults={},nextWeekIncrease={};
+// optionalActive[dayIdx] = array of optional-exercise ids the user has toggled on for that day,
+// for when they want a heavier/longer session. Session-local, like done{}/setResults{} above.
+let optionalActive={};
 // SESSLOG: one entry per logged workout day ({date, dayIdx}), used only to check weekly
 // training compliance (see checkWeeklyCompliance) — independent of per-exercise H[] history.
 let SESSLOG=[];
 // RECOV: daily sauna / cold plunge log, one entry per date ({date, sauna, cold}).
 let RECOV=[];
+// HOTWORX: one entry per Hotworx day logged ({date, dayIdx, cycle, yoga, stretch}).
+let HOTWORX=[];
 // Workout queue — decoupled from the actual calendar day so missing days doesn't create rigid "missed" pressure.
 // queueIdx tracks "next workout in the rotation" and only advances when a session is saved (or manually nudged).
 let queueIdx=parseInt(localStorage.getItem('dg_queueIdx'));
@@ -727,7 +729,7 @@ async function loadData(){
     const loc=JSON.parse(localStorage.getItem('dg_backup')||'{}');
     if(loc.W){W=loc.W||{};H=loc.H||{};CH=loc.CH||[];MEAS=loc.MEAS||[];PROT=loc.PROT||[];SLEEP=loc.SLEEP||[];WATER=loc.WATER||{};nextWeekIncrease=loc.nextWeekIncrease||{};}
     if(loc.queueIdx!==undefined){queueIdx=loc.queueIdx;selDay=queueIdx;}
-    SESSLOG=loc.SESSLOG||[];RECOV=loc.RECOV||[];
+    SESSLOG=loc.SESSLOG||[];RECOV=loc.RECOV||[];HOTWORX=loc.HOTWORX||[];
   }catch(e2){}
   seedDefaults();
   applyPendingIncreases();
@@ -751,7 +753,7 @@ async function loadData(){
       SLEEP=d.SLEEP||[];WATER=d.WATER||{};
       nextWeekIncrease=d.nextWeekIncrease||{};
       if(d.queueIdx!==undefined){queueIdx=d.queueIdx;selDay=queueIdx;}
-      SESSLOG=d.SESSLOG||[];RECOV=d.RECOV||[];
+      SESSLOG=d.SESSLOG||[];RECOV=d.RECOV||[];HOTWORX=d.HOTWORX||[];
       seedDefaults();applyPendingIncreases();
       checkWeeklyCompliance();
       renderAll();setSS('ok','synced');
@@ -762,13 +764,17 @@ async function loadData(){
 }
 
 function seedDefaults(){
-  Object.values(PLAN).forEach(d=>d.exercises&&d.exercises.forEach(ex=>{
+  const seedOne=ex=>{
     if(W[ex.id]===undefined)W[ex.id]=ex.w;
     const dbKey=ex.id+'_db';
     if(W[dbKey]===undefined&&ex.dumbbellW!==undefined)W[dbKey]=ex.dumbbellW;
     const altKey=ex.id+'_alt';
     if(W[altKey]===undefined&&ex.altW!==undefined)W[altKey]=ex.altW;
-  }));
+  };
+  Object.values(PLAN).forEach(d=>{
+    d.exercises&&d.exercises.forEach(seedOne);
+    d.optional&&d.optional.forEach(seedOne);
+  });
 }
 
 function applyPendingIncreases(){
@@ -783,7 +789,7 @@ function applyPendingIncreases(){
 
 async function persist(){
   setSS('saving','saving...');
-  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease,queueIdx,SESSLOG,RECOV};
+  const payload={W,H,CH,MEAS,PROT,SLEEP,WATER,nextWeekIncrease,queueIdx,SESSLOG,RECOV,HOTWORX};
   // Always save locally first — instant and never fails
   try{localStorage.setItem('dg_backup',JSON.stringify(payload));}catch(e){}
   // Then push to Supabase with timeout
@@ -819,10 +825,10 @@ function isDeload(){const w=Math.floor((new Date()-programStartDate)/(7*24*60*60
 function effSets(ex){return isDeload()?Math.max(1,ex.sets-1):ex.sets;}
 function tuck(){return TUCKER[Math.floor(Math.random()*TUCKER.length)];}
 
-function suggest(id,sets){
+function suggest(id,sets,mode){
   const h=H[id]||[];
   if(!h.length)return{t:'new',msg:'Log your first session to start tracking'};
-  const last=h[h.length-1];const w=gw(id);
+  const last=h[h.length-1];const w=gw(id,mode);
   if(h.length>=2){const best=Math.max(...h.map(x=>x.weight));if(w>best)return{t:'pr',msg:'New PR! '+w+' lbs. Tucker is almost impressed.'};}
   if(last.c>=sets){if(isDeload())return{t:'hold',msg:'Deload week — hold weight, drop one set'};return{t:'up',msg:'All sets done! Try '+(w+2.5)+' lbs next session'};}
   return{t:'hold',msg:'Complete all '+sets+' sets at '+w+' lbs first'};
@@ -958,6 +964,21 @@ function getCoreExs(day){
   return pool[(day.coreRot||0)%pool.length];
 }
 
+// Optional adds — exercises from day.optional that the user has toggled on for a heavier/
+// longer session. Combined with day.exercises wherever the full active list is needed, so
+// toggled-on extras get the same set-tracking, equipment swap, and plate math as the rest.
+function getActiveExercises(day,dayIdx){
+  const extras=(day.optional||[]).filter(o=>(optionalActive[dayIdx]||[]).includes(o.id));
+  return [...day.exercises,...extras];
+}
+function toggleOptional(dayIdx,exId){
+  if(!optionalActive[dayIdx])optionalActive[dayIdx]=[];
+  const idx=optionalActive[dayIdx].indexOf(exId);
+  if(idx>=0)optionalActive[dayIdx].splice(idx,1);
+  else optionalActive[dayIdx].push(exId);
+  renderWorkout();
+}
+
 function renderWorkout(){
   const area=document.getElementById('workout-area');
   // If workout was rescheduled from another day, show that plan
@@ -965,27 +986,21 @@ function renderWorkout(){
     ? window._rescheduledWorkout
     : selDay;
   const day = PLAN[effectiveDayIdx] || PLAN[selDay];
+  if(day&&day.hotworx){
+    area.innerHTML=cardioCardHtml()+hotworxCardHtml(effectiveDayIdx)+recoveryCardHtml();
+    return;
+  }
   if(!day||!day.exercises.length){
     area.innerHTML='<div class="rest-card"><div class="rest-icon">🌿</div><div class="rest-title">Rest day</div><div class="rest-sub">'+day.tag+'<br><br>Sleep 7–9 hrs · light walk · foam roll.<br><br><em style="font-size:11px;color:var(--tx3)">Tucker is on the couch. Join him.</em></div></div>'+recoveryCardHtml();
     return;
   }
 
+  // Default exercises + whichever optional adds are toggled on for this day
+  const activeExercises = getActiveExercises(day, effectiveDayIdx);
+
   // CARDIO SECTION AT TOP
-  const today=new Date().toISOString().split('T')[0];
-  const todayCardio=CH.filter(c=>c.date===today);
-  const cardioLogged=todayCardio.length>0;
-  const selCardioType=window._cardioType||'Run outside';
-  const ctBtns=['Run outside','Treadmill','Bike'].map(t=>`<button class="ct-btn${selCardioType===t?' active':''}" onclick="window._cardioType='${t}';renderWorkout()">${t}</button>`).join('');
   let html='';
-  html+=`<div class="cardio-top-card">
-    <div class="cardio-top-title">🏃 Today's cardio${cardioLogged?' <span style="color:var(--gr);font-size:11px">✓ logged</span>':''}</div>
-    <div class="cardio-toggle">${ctBtns}</div>
-    <div class="cardio-row-inputs">
-      <div class="ci"><label>Miles</label><input type="number" id="ct-dist" value="${window._cDist||2.5}" min="0" max="30" step="0.1" onchange="window._cDist=this.value"></div>
-      <div class="ci"><label>Minutes</label><input type="number" id="ct-dur" value="${window._cDur||25}" min="1" max="300" onchange="window._cDur=this.value"></div>
-    </div>
-    <button class="cardio-log-btn${cardioLogged?' logged':''}" onclick="logCardioTop()">${cardioLogged?'✓ Cardio saved':'Log cardio'}</button>
-  </div>`;
+  html+=cardioCardHtml();
 
   // WARMUP
   const warmupExs=WARMUPS[day.warmup]||[];
@@ -1009,8 +1024,8 @@ function renderWorkout(){
   html+=`</div><button class="warmup-done-btn${allWarmupDone?' completed':''}" id="warmup-done-btn" onclick="markWarmupDone()">${allWarmupDone?'✓ Warm-up complete':'Mark all complete'}</button></div>`;
 
   // PROGRESS BAR
-  const totalSets=day.exercises.reduce((a,e)=>a+effSets(e),0);
-  let dc=0;day.exercises.forEach(ex=>{for(let s=1;s<=effSets(ex);s++)if(done[''+ex.id+'_'+selDay+'_'+s])dc++;});
+  const totalSets=activeExercises.reduce((a,e)=>a+effSets(e),0);
+  let dc=0;activeExercises.forEach(ex=>{for(let s=1;s<=effSets(ex);s++)if(done[''+ex.id+'_'+selDay+'_'+s])dc++;});
   const pct=Math.round((dc/totalSets)*100);
   html+=`<div class="dprog"><div class="dprog-row"><span class="dprog-title">${day.name}</span><span class="dprog-pct">${dc}/${totalSets} · ${pct}%</span></div><div class="pbar"><div class="pfill" id="pfill" style="width:${pct}%"></div></div><div class="dtag">${day.tag}</div></div>`;
 
@@ -1023,15 +1038,15 @@ function renderWorkout(){
   '</div>';
 
   // Superset suggestions strip
-  const ssMap = {0:'pushA',1:'pullA',2:'legsA',3:'pushB',4:'pullB',5:'rest',6:'legsB'};
+  const ssMap = {0:'upperA',1:'lowerA',3:'upperB',4:'lowerB'};
   const workoutKey = ssMap[effectiveDayIdx] || '';
   const suggestions = getSuggestedSupersets(workoutKey);
   const unpairedSuggs = suggestions.filter(([a,b]) => !activeSupersets[a] && !activeSupersets[b]);
   if(unpairedSuggs.length) {
     html += '<div class="ss-suggest-strip"><span class="ss-suggest-label">💪 Suggested supersets:</span>';
     unpairedSuggs.slice(0,2).forEach(([a,b]) => {
-      const exA = day.exercises.find(e=>e.id===a);
-      const exB = day.exercises.find(e=>e.id===b);
+      const exA = activeExercises.find(e=>e.id===a);
+      const exB = activeExercises.find(e=>e.id===b);
       if(exA && exB) {
         html += '<button class="ss-suggest-btn" onclick="toggleSuperset(\''+a+'\',\''+b+'\');renderWorkout()">'+
           exA.name.split(' ').pop()+' + '+exB.name.split(' ').pop()+'</button>';
@@ -1043,22 +1058,22 @@ function renderWorkout(){
   // EXERCISES
   const icons={up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>',hold:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><path d="M5 12h14"/></svg>',new:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>',pr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'};
 
-  day.exercises.forEach(ex=>{
+  activeExercises.forEach(ex=>{
     const eqEx=getExEquip(ex);
     const isBWonly=ex.bwOnly===true;
     const isBW=eqEx.isBW||isBWonly;
     const w=isBW?0:gw(ex.id);
     const dispW=isBW?null:(eqEx.w||w);
     const dbNote=ex.db&&!isBW?' per arm':'';
-    const sg=suggest(ex.id,effSets(ex));
-    const sets=effSets(ex);
     const curMode=perExEquip[ex.id]||equipMode;
+    const sg=suggest(ex.id,effSets(ex),curMode);
+    const sets=effSets(ex);
     const effort=exEffort[ex.id+'_'+selDay]||'';
     const nwi=nextWeekIncrease[ex.id];
     const nwiChecked=nwi&&!nwi.applied;
 
       // Superset connector between paired exercises
-    const isSecondInSS = activeSupersets[ex.id] && !isFirstInSuperset(ex.id, day.exercises);
+    const isSecondInSS = activeSupersets[ex.id] && !isFirstInSuperset(ex.id, activeExercises);
     if(isSecondInSS) html+=`<div class="ss-connector"></div>`;
 
     html+=`<div class="ex-card${activeSupersets[ex.id]?' ss-paired':''}">`
@@ -1066,7 +1081,7 @@ function renderWorkout(){
     // Superset badge
     const ssPartner = activeSupersets[ex.id];
     if(ssPartner) {
-      const partnerEx = day.exercises.find(e=>e.id===ssPartner);
+      const partnerEx = activeExercises.find(e=>e.id===ssPartner);
       html+=`<div class="ss-bar">
         <span class="ss-badge">SUPERSET</span>
         <span class="ss-bar-label">paired with ${partnerEx?partnerEx.name:'partner'}</span>
@@ -1142,6 +1157,20 @@ function renderWorkout(){
     </div></div>`;
   });
 
+  // OPTIONAL ADDS — want a heavier/longer session? Toggle any of these on for today.
+  if(day.optional&&day.optional.length){
+    const activeIds=optionalActive[effectiveDayIdx]||[];
+    html+=`<div class="ex-card" style="border-style:dashed">
+      <div class="ex-name" style="margin-bottom:2px">➕ Optional adds</div>
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:9px">Want a heavier or longer session today? Tap any to add it in.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">`;
+    day.optional.forEach(opt=>{
+      const isOn=activeIds.includes(opt.id);
+      html+=`<button class="peq-btn${isOn?' sel':''}" onclick="toggleOptional(${effectiveDayIdx},'${opt.id}')">${isOn?'✓ ':''}${opt.name}</button>`;
+    });
+    html+=`</div></div>`;
+  }
+
   // CORE FINISHER
   const coreExs=getCoreExs(day);
   if(coreExs.length){
@@ -1164,6 +1193,66 @@ function renderWorkout(){
   html+=`<button class="skip-workout-btn" onclick="promptSkip()">😔 I didn't train today — push to tomorrow</button>`;
   html+=recoveryCardHtml();
   area.innerHTML=html;
+}
+
+// Cardio card — shown on lift days AND Hotworx days, since a run or bike ride can happen
+// on either (separate from whichever Hotworx class was done).
+function cardioCardHtml(){
+  const today=new Date().toISOString().split('T')[0];
+  const todayCardio=CH.filter(c=>c.date===today);
+  const cardioLogged=todayCardio.length>0;
+  const selCardioType=window._cardioType||'Run outside';
+  const ctBtns=['Run outside','Treadmill','Bike'].map(t=>`<button class="ct-btn${selCardioType===t?' active':''}" onclick="window._cardioType='${t}';renderWorkout()">${t}</button>`).join('');
+  return `<div class="cardio-top-card">
+    <div class="cardio-top-title">🏃 Today's cardio${cardioLogged?' <span style="color:var(--gr);font-size:11px">✓ logged</span>':''}</div>
+    <div class="cardio-toggle">${ctBtns}</div>
+    <div class="cardio-row-inputs">
+      <div class="ci"><label>Miles</label><input type="number" id="ct-dist" value="${window._cDist||2.5}" min="0" max="30" step="0.1" onchange="window._cDist=this.value"></div>
+      <div class="ci"><label>Minutes</label><input type="number" id="ct-dur" value="${window._cDur||25}" min="1" max="300" onchange="window._cDur=this.value"></div>
+    </div>
+    <button class="cardio-log-btn${cardioLogged?' logged':''}" onclick="logCardioTop()">${cardioLogged?'✓ Cardio saved':'Log cardio'}</button>
+  </div>`;
+}
+
+// Hotworx — "I did Hotworx today" with Cycle/Yoga/Stretch checkboxes (any combination).
+// Counts as one of the 6 weekly training days for compliance/queue purposes, same as a lift day.
+function hotworxCardHtml(dayIdx){
+  const today=new Date().toISOString().split('T')[0];
+  const entry=HOTWORX.find(h=>h.date===today&&h.dayIdx===dayIdx)||{cycle:false,yoga:false,stretch:false};
+  const logged=entry.cycle||entry.yoga||entry.stretch;
+  return `<div class="ex-card core-card">
+    <div class="core-card-header">
+      <div><div class="core-card-title">🔥 I did Hotworx today</div><div style="font-size:11px;color:var(--tx2);margin-top:1px">Check off whichever class(es) you did</div></div>
+      <span class="core-tag">Hotworx</span>
+    </div>
+    <div class="core-exercises">
+      <div class="core-ex-item"><div><div class="core-ex-name">🚴 Hotworx Cycle</div></div><input type="checkbox" class="core-check" id="hw-cycle" ${entry.cycle?'checked':''}></div>
+      <div class="core-ex-item"><div><div class="core-ex-name">🧘 Hotworx Yoga</div></div><input type="checkbox" class="core-check" id="hw-yoga" ${entry.yoga?'checked':''}></div>
+      <div class="core-ex-item"><div><div class="core-ex-name">🤸 Hotworx Stretch</div></div><input type="checkbox" class="core-check" id="hw-stretch" ${entry.stretch?'checked':''}></div>
+    </div>
+    <button class="core-log-btn${logged?' logged':''}" id="hotworx-log-btn" onclick="logHotworx(${dayIdx})">${logged?'✓ Hotworx logged':'Log Hotworx'}</button>
+  </div>`;
+}
+function logHotworx(dayIdx){
+  const cycle=document.getElementById('hw-cycle')?.checked||false;
+  const yoga=document.getElementById('hw-yoga')?.checked||false;
+  const stretch=document.getElementById('hw-stretch')?.checked||false;
+  if(!cycle&&!yoga&&!stretch){toast("Check off at least one class first");return;}
+  const today=new Date().toISOString().split('T')[0];
+  HOTWORX=HOTWORX.filter(h=>!(h.date===today&&h.dayIdx===dayIdx));
+  HOTWORX.push({date:today,dayIdx,cycle,yoga,stretch});
+  if(HOTWORX.length>200)HOTWORX=HOTWORX.slice(-200);
+  // Counts toward weekly compliance exactly like a lift session, and advances the queue the same way.
+  SESSLOG.push({date:today,dayIdx});
+  if(SESSLOG.length>200)SESSLOG=SESSLOG.slice(-200);
+  markDayCompleted(dayIdx);
+  queueIdx=(dayIdx+1)%7;
+  persistQueueIdx();
+  selDay=queueIdx;
+  persist();
+  const classes=[cycle&&'Cycle',yoga&&'Yoga',stretch&&'Stretch'].filter(Boolean).join(' + ');
+  showTucker('proud','Hotworx done 🔥',classes+' logged. Tucker approves of the cross-training.','Nice work 💪','');
+  renderDays();renderQueueNav();renderWorkout();renderProgress();
 }
 
 // Sauna / cold plunge — simple daily habit checkboxes, tracked in RECOV so how-often
@@ -1216,8 +1305,9 @@ function toggleSet(id,k,btn){
 
 function updateProgBar(){
   const day=PLAN[selDay];if(!day||!day.exercises.length)return;
-  const tot=day.exercises.reduce((a,e)=>a+effSets(e),0);
-  let ct=0;day.exercises.forEach(ex=>{for(let s=1;s<=effSets(ex);s++)if(done[''+ex.id+'_'+selDay+'_'+s])ct++;});
+  const activeExercises=getActiveExercises(day,selDay);
+  const tot=activeExercises.reduce((a,e)=>a+effSets(e),0);
+  let ct=0;activeExercises.forEach(ex=>{for(let s=1;s<=effSets(ex);s++)if(done[''+ex.id+'_'+selDay+'_'+s])ct++;});
   const pct=Math.round((ct/tot)*100);
   const pf=document.getElementById('pfill');if(pf)pf.style.width=pct+'%';
   const pp=document.querySelector('.dprog-pct');if(pp)pp.textContent=ct+'/'+tot+' · '+pct+'%';
@@ -1288,8 +1378,9 @@ function logCoreSession(){
 
 function saveSession(){
   const day=PLAN[selDay];const date=new Date().toISOString().split('T')[0];
+  const activeExercises=getActiveExercises(day,selDay);
   let newPRs=[];
-  day.exercises.forEach(ex=>{
+  activeExercises.forEach(ex=>{
     if(ex.bwOnly)return;const eqEx=getExEquip(ex);if(eqEx.isBW)return;
     const w=gw(ex.id);if(!w)return;let c=0;const sets=effSets(ex);
     for(let s=1;s<=sets;s++)if(done[''+ex.id+'_'+selDay+'_'+s])c++;
@@ -1301,6 +1392,7 @@ function saveSession(){
   const notes=document.getElementById('sess-notes')?.value||'';
   if(!window._sessNotes)window._sessNotes={};window._sessNotes[selDay]=notes;
   markDayCompleted(selDay);
+  delete optionalActive[selDay];
   // Advance the rotation to whatever comes after the workout just logged — this is what lets
   // catching up on several missed days "just work": the app always points at the right next
   // workout regardless of which real weekday it is.
@@ -1412,7 +1504,8 @@ function renderProgress(){
   const miles=CH.reduce((a,c)=>a+(c.dist||0),0);const ps=calcProteinStreak();
   const now2=new Date();const monthStart2=new Date(now2.getFullYear(),now2.getMonth(),1).toISOString().split('T')[0];const monthMiles2=CH.filter(c=>c.date>=monthStart2).reduce((a,c)=>a+(c.dist||0),0);const monthSess=new Set();Object.values(H).forEach(h=>h.forEach(s=>{if(s.date>=monthStart2)monthSess.add(s.date);}));
   const saunaCount=RECOV.filter(r=>r.sauna).length;const coldCount=RECOV.filter(r=>r.cold).length;
-  document.getElementById('stat-grid').innerHTML=`<div class="sc"><div class="sl">Sessions total</div><div class="sv">${sessions}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">This month</div><div class="sv">${monthSess.size}</div><div class="ss">sessions</div></div><div class="sc"><div class="sl">Miles this month</div><div class="sv">${monthMiles2.toFixed(1)}</div><div class="ss">running total</div></div><div class="sc"><div class="sl">Miles all time</div><div class="sv">${miles.toFixed(1)}</div><div class="ss">total</div></div><div class="sc"><div class="sl">Lifts improving</div><div class="sv">${improving}</div><div class="ss">of ${allEx.length} exercises</div></div><div class="sc"><div class="sl">Protein streak</div><div class="sv">${ps}</div><div class="ss">days in a row</div></div><div class="sc"><div class="sl">🧖 Sauna</div><div class="sv">${saunaCount}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">🥶 Cold plunge</div><div class="sv">${coldCount}</div><div class="ss">all time</div></div>`;
+  const hotworxCount=HOTWORX.filter(h=>h.cycle||h.yoga||h.stretch).length;
+  document.getElementById('stat-grid').innerHTML=`<div class="sc"><div class="sl">Sessions total</div><div class="sv">${sessions}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">This month</div><div class="sv">${monthSess.size}</div><div class="ss">sessions</div></div><div class="sc"><div class="sl">Miles this month</div><div class="sv">${monthMiles2.toFixed(1)}</div><div class="ss">running total</div></div><div class="sc"><div class="sl">Miles all time</div><div class="sv">${miles.toFixed(1)}</div><div class="ss">total</div></div><div class="sc"><div class="sl">Lifts improving</div><div class="sv">${improving}</div><div class="ss">of ${allEx.length} exercises</div></div><div class="sc"><div class="sl">Protein streak</div><div class="sv">${ps}</div><div class="ss">days in a row</div></div><div class="sc"><div class="sl">🔥 Hotworx</div><div class="sv">${hotworxCount}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">🧖 Sauna</div><div class="sv">${saunaCount}</div><div class="ss">all time</div></div><div class="sc"><div class="sl">🥶 Cold plunge</div><div class="sv">${coldCount}</div><div class="ss">all time</div></div>`;
   renderSleepChart();renderHeatmap();renderStreaks();
   document.getElementById('prog-body').innerHTML=allEx.map(ex=>{const h=H[ex.id]||[];const last=h.length?h[h.length-1].weight:gw(ex.id);const best=h.length?Math.max(...h.map(x=>x.weight)):gw(ex.id);const first=h.length>=2?h[0].weight:null;const trend=first===null?'same':(last>first?'up':last<first?'down':'same');const icon=trend==='up'?'↑':trend==='down'?'↓':'—';const cls=trend==='up'?'tup':trend==='down'?'tdn':'tsa';const bars=h.slice(-6);const mx=bars.length?Math.max(...bars.map(x=>x.weight)):1;const bc=bars.map(x=>`<div class="mbar" style="height:${Math.round((x.weight/mx)*20)}px;width:${Math.max(4,Math.floor(38/bars.length)-2)}px"></div>`).join('');return`<tr><td title="${ex.name}">${ex.name}</td><td>${last}</td><td>${best}</td><td class="${cls}">${icon}</td><td><div class="mini">${bc||'<span style="font-size:10px;color:var(--tx3)">—</span>'}</div></td></tr>`;}).join('');
   document.getElementById('cardio-body').innerHTML=CH.slice(-8).reverse().map(r=>`<tr><td>${r.date}</td><td>${r.type}</td><td>${r.dist}</td><td>${r.dur}</td><td style="color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.notes||'—'}</td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--tx3);font-size:11px;padding:8px 5px">No cardio yet</td></tr>';
@@ -1541,7 +1634,7 @@ function renderPlan(){
     </div>
     <div style="font-size:10px;color:var(--tx3);margin-top:6px">Falling behind? Reset the phase clock to catch back up — this only affects rep/weight suggestions, never your logged history.</div>
   </div>`;
-  el.innerHTML=controlsHtml+Object.entries(PLAN).map(([i,d])=>`<div class="plan-card"><div class="plan-head"><div><div class="plan-name">${DAYS[parseInt(i)]} — ${d.name}</div><div class="plan-tag">${d.tag}</div></div>${d.exercises.length?`<span class="exc-badge">${d.exercises.length} ex</span>`:'<span class="rest-badge2">rest</span>'}</div>${d.exercises.length?`<div class="plan-chips">${d.exercises.map(e=>`<span class="pchip">${e.name}${!e.bwOnly?' · '+e.w+(e.db?' per arm':'')+'lb':''}</span>`).join('')}</div>`:''}</div>`).join('');
+  el.innerHTML=controlsHtml+Object.entries(PLAN).map(([i,d])=>`<div class="plan-card"><div class="plan-head"><div><div class="plan-name">${DAYS[parseInt(i)]} — ${d.name}</div><div class="plan-tag">${d.tag}</div></div>${d.hotworx?'<span class="exc-badge" style="background:var(--aml);color:#633806">hotworx</span>':d.exercises.length?`<span class="exc-badge">${d.exercises.length} ex</span>`:'<span class="rest-badge2">rest</span>'}</div>${d.exercises.length?`<div class="plan-chips">${d.exercises.map(e=>`<span class="pchip">${e.name}${!e.bwOnly?' · '+e.w+(e.db?' per arm':'')+'lb':''}</span>`).join('')}</div>`:''}</div>`).join('');
 }
 
 function renderTukTab(){
@@ -1775,12 +1868,10 @@ function logWater(glasses){
 // ─── SUPERSETS ────────────────────────────────────────────────────────────────
 // Pre-suggested smart pairings per workout type
 const SUPERSET_SUGGESTIONS = {
-  pushA: [['bbp','incbar'],['dbohp','latr'],['tricpd','ohtri']],
-  pushB: [['dbflt','incdb'],['arnld','uprow'],['skllc','dips']],
-  pullA: [['dl','pup'],['bbrow','cabrow'],['bbcurl','hamcrl']],
-  pullB: [['tbar','lapd'],['dbrow','facep'],['conccl','pcurl']],
-  legsA: [['bsq','rdl'],['lgpr','legcr'],['lunge','calf']],
-  legsB: [['bsqb','bss'],['hipthr','legcr'],['calfb','lunge']],
+  upperA: [['bbp','bbrow'],['dbohp','latr'],['bbcurl','tricpd']],
+  upperB: [['incbar','lapd'],['arnld','facep'],['hamcrl','skllc']],
+  lowerA: [['bsq','rdl'],['lgpr','calf']],
+  lowerB: [['dl','legcr'],['lunge','bss']],
 };
 
 // Active supersets: {exId: partnerExId}
